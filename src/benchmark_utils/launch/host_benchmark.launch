@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- =============================================== -->
+    <!-- 宿主机 Benchmark Launch 文件                     -->
+    <!-- 用于新架构：宿主机运行轨迹发布，容器运行控制器      -->
+    <!-- =============================================== -->
+
+    <!-- ==================== 参数配置 ==================== -->
+    <!-- 任务参数 -->
+    <arg name="task_type" default="dynamic" doc="任务类型: hover/dynamic"/>
+    <arg name="trajectory_type" default="circle" doc="轨迹类型: circle/figure8/ellipse/..."/>
+    <arg name="speed_level" default="1.0" doc="速度倍率"/>
+    <arg name="duration" default="30" doc="测试时长(秒)"/>
+
+    <!-- 坐标系参数 -->
+    <arg name="coordinate_frame" default="1" doc="坐标系: 1=ENU输入, 2=NED输入"/>
+    <arg name="odom_topic" default="/vio/odometry_enu" doc="里程计话题"/>
+
+    <!-- 起飞参数 -->
+    <arg name="takeoff_height_threshold" default="0.5" doc="起飞检测高度阈值"/>
+
+    <!-- 日志参数 -->
+    <arg name="log_dir" default="$(find benchmark_utils)/../../../benchmark_results" doc="日志保存目录"/>
+
+    <!-- 节点控制 -->
+    <arg name="start_odom_converter" default="true" doc="是否启动坐标转换节点"/>
+    <arg name="start_benchmark" default="true" doc="是否启动benchmark节点"/>
+
+    <!-- ==================== 坐标转换节点 ==================== -->
+    <!-- 将 MAVROS 的 NED 坐标系转换为 ENU -->
+    <node pkg="nmpc_control" type="rflysim_odom_node.py" name="rflysim_odom_node"
+          output="screen" if="$(arg start_odom_converter)">
+        <param name="input_topic" value="/mavros/local_position/odom"/>
+        <param name="output_topic" value="/vio/odometry_enu"/>
+    </node>
+
+    <!-- ==================== Benchmark 节点 ==================== -->
+    <!-- 轨迹生成与发布 -->
+    <node pkg="benchmark_utils" type="benchmark_node.py" name="benchmark_node"
+          output="screen" if="$(arg start_benchmark)">
+        <!-- 任务配置 -->
+        <param name="task_type" value="$(arg task_type)"/>
+        <param name="trajectory_type" value="$(arg trajectory_type)"/>
+        <param name="speed_level" value="$(arg speed_level)"/>
+        <param name="duration" value="$(arg duration)"/>
+
+        <!-- 坐标系配置 -->
+        <param name="coordinate_frame" value="$(arg coordinate_frame)"/>
+        <param name="odom_topic" value="$(arg odom_topic)"/>
+
+        <!-- 起飞配置 -->
+        <param name="takeoff_height_threshold" value="$(arg takeoff_height_threshold)"/>
+
+        <!-- 日志配置 -->
+        <param name="log_dir" value="$(arg log_dir)"/>
+    </node>
+
+</launch>

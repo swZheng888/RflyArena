@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- =============================================== -->
+    <!-- 风扰动测试启动文件 -->
+    <!-- =============================================== -->
+    
+    <!-- 风扰动配置 -->
+    <arg name="wind_type" default="constant" />  <!-- constant/gust/turbulent -->
+    <arg name="wind_speed" default="1.5" />      <!-- m/s -->
+    <arg name="wind_direction" default="0.0" />  <!-- 度 (0=北, 90=东) -->
+    <arg name="start_delay" default="5.0" />     <!-- 秒 -->
+    <arg name="enabled" default="true" />
+    <arg name="turbulent_intensity" default="1.5" />  <!-- 湍流强度 -->
+    
+    <!-- 阵风配置 -->
+    <arg name="gust_duration" default="2.0" />   <!-- 秒 -->
+    <arg name="gust_interval" default="5.0" />   <!-- 秒 -->
+    
+    <!-- 随机风配置 -->
+    <arg name="random_max_speed" default="5.0" />    <!-- m/s -->
+    <arg name="random_update_rate" default="1.0" />  <!-- Hz -->
+    
+    <!-- RflySim配置 -->
+    <arg name="rflysim_ip" default="127.0.0.1" />
+    <arg name="rflysim_port" default="20010" />
+    <arg name="copter_id" default="1" />
+    
+    <!-- 风扰动注入节点 -->
+    <node pkg="benchmark_utils" type="wind_injector.py" name="wind_injector" output="screen">
+        <param name="wind_type" value="$(arg wind_type)" />
+        <param name="wind_speed" value="$(arg wind_speed)" />
+        <param name="wind_direction" value="$(arg wind_direction)" />
+        <param name="start_delay" value="$(arg start_delay)" />
+        <param name="enabled" value="$(arg enabled)" />
+        <param name="turbulent_intensity" value="$(arg turbulent_intensity)" />
+        <param name="copter_id" value="$(arg copter_id)" />
+        
+        <param name="gust_duration" value="$(arg gust_duration)" />
+        <param name="gust_interval" value="$(arg gust_interval)" />
+        
+        <param name="random_max_speed" value="$(arg random_max_speed)" />
+        <param name="random_update_rate" value="$(arg random_update_rate)" />
+        
+        <param name="rflysim_ip" value="$(arg rflysim_ip)" />
+        <param name="rflysim_port" value="$(arg rflysim_port)" />
+        <param name="copter_id" value="$(arg copter_id)" />
+    </node>
+
+</launch>

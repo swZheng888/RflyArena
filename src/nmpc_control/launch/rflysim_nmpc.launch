@@ -1,0 +1,112 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- =============================================== -->
+    <!-- RflySim + NMPC + Benchmark 联合仿真启动文件 -->
+    <!-- =============================================== -->
+    
+    <!-- ==================== 基本配置 ==================== -->
+    <arg name="copter_id" default="1" />
+    
+    <!-- ==================== 坐标系配置 ==================== -->
+    <!-- VIO输出NED坐标系，所有节点自动处理转换 -->
+    <arg name="frame_id" default="map" />
+    <arg name="child_frame_id" default="base_link" />
+    <!-- 
+        coordinate_frame 坐标系模式:
+        0 = NED: 输入为NED坐标系，内部转换为ENU (nedfrd_to_enuflu)
+        1 = MAVROS: 输入来自mavros/local_position，位置是ENU，速度是FRD机体系
+        2 = ENU: 输入已经是完整的ENU坐标系，无需转换
+    -->
+    <arg name="coordinate_frame" value="2" />
+    
+    <!-- ==================== 话题配置 ==================== -->
+    <arg name="odom_topic" default="/vio/odometry_enu" />  <!-- VIO里程计（ENU） -->
+    <arg name="position_cmd_topic" default="/position_cmd" />
+    <arg name="attitude_cmd_topic" default="/mavros/setpoint_raw/attitude" />
+    <arg name="rc_topic" default="/mavros/rc/in" />
+    <arg name="state_topic" default="/mavros/state" />
+    
+    <!-- ==================== Benchmark任务配置 ==================== -->
+    <arg name="task_type" default="dynamic" />  <!-- hover/dynamic/all -->
+    <arg name="trajectory_type" default="figure8" />  <!-- 动态轨迹类型 -->
+    <arg name="speed_level" default="1.0" />  <!-- 0.5/1.0/1.5/2.0 -->
+    <arg name="log_dir" default="~/.benchmark_logs" />
+    
+    <!-- 任务持续时间 -->
+    <arg name="hover_duration" default="30.0" />
+    <arg name="dynamic_duration" default="60.0" />
+    
+    <!-- ==================== 控制器配置 ==================== -->
+    <arg name="takeoff_height" default="1.0" />
+    <arg name="takeoff_vz_max" default="0.5" />  <!-- 起飞最大垂直速度 (m/s) -->
+    <arg name="land_height" default="0.15" />
+    <arg name="kill_height" default="0.08" />
+    
+    <!-- 轨迹预览配置 (A/B测试) -->
+    <arg name="use_trajectory_preview" default="true" />  <!-- true=新方法, false=旧方法 -->
+    <arg name="acc_threshold" default="3.0" />  <!-- 加速度阈值 m/s² -->
+    
+    <!-- ==================== 节点启动 ==================== -->
+    
+    <!-- 1. RflySim里程计节点 -->
+    <node pkg="nmpc_control" type="rflysim_odom_node.py" name="rflysim_odom_node" output="screen">
+        <param name="copter_id" value="$(arg copter_id)" />
+        <param name="rate" value="200.0" />
+        <param name="frame_id" value="$(arg frame_id)" />
+        <param name="child_frame_id" value="$(arg child_frame_id)" />
+        <param name="odom_topic" value="/vio/odometry" />
+        <param name="odom_enu_topic" value="/vio/odometry_enu" />
+    </node>
+    
+    <!-- 2. NMPC控制节点 -->
+    <node pkg="nmpc_control" type="control_nmpc_node.py" name="nmpc_control_node" output="screen">
+        <param name="control_mode" value="1" />  <!-- 1=轨迹跟踪 -->
+        <param name="use_flat_traj" value="true" />
+        <param name="coordinate_frame" value="$(arg coordinate_frame)" />
+        <param name="takeoff_height" value="$(arg takeoff_height)" />
+        <param name="takeoff_vz_max" value="$(arg takeoff_vz_max)" />
+        <param name="land_height" value="$(arg land_height)" />
+        <param name="kill_height" value="$(arg kill_height)" />
+        <param name="enable_logging" value="true" />
+        
+        <!-- 话题 -->
+        <param name="odom_topic" value="$(arg odom_topic)" />
+        <param name="position_cmd_topic" value="$(arg position_cmd_topic)" />
+        <param name="attitude_cmd_topic" value="$(arg attitude_cmd_topic)" />
+        <param name="rc_topic" value="$(arg rc_topic)" />
+        <param name="state_topic" value="$(arg state_topic)" />
+        
+        <!-- 轨迹预览控制 (A/B测试) -->
+        <param name="use_trajectory_preview" value="$(arg use_trajectory_preview)" />
+        <param name="acc_threshold" value="$(arg acc_threshold)" />
+    </node>
+    
+    <!-- 3. Benchmark系统 -->
+    
+    <!-- Task 1: 悬停测试 -->
+    <!-- <group if="$(eval task_type == 'hover')">
+        <include file="$(find benchmark_utils)/launch/benchmark.launch">
+            <arg name="odom_topic" value="$(arg odom_topic)" />
+            <arg name="position_cmd_topic" value="$(arg position_cmd_topic)" />
+            <arg name="coordinate_frame" value="$(arg coordinate_frame)" />
+            <arg name="task_type" value="hover" />
+            <arg name="task_duration" value="$(arg hover_duration)" />
+            <arg name="log_dir" value="$(arg log_dir)" />
+        </include>
+    </group> -->
+    
+    <!-- Task 2: 动态轨迹测试 -->
+    <!-- <group if="$(eval task_type == 'dynamic')">
+        <include file="$(find benchmark_utils)/launch/benchmark.launch">
+            <arg name="odom_topic" value="$(arg odom_topic)" />
+            <arg name="position_cmd_topic" value="$(arg position_cmd_topic)" />
+            <arg name="coordinate_frame" value="$(arg coordinate_frame)" />
+            <arg name="task_type" value="dynamic" />
+            <arg name="task_duration" value="$(arg dynamic_duration)" />
+            <arg name="log_dir" value="$(arg log_dir)" />
+            <arg name="trajectory_type" value="$(arg trajectory_type)" />
+            <arg name="speed_level" value="$(arg speed_level)" />
+        </include>
+    </group> -->
+    
+</launch>

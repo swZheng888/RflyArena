@@ -1,0 +1,69 @@
+# ===========================================================================
+# UAV Multi-Controller Benchmark - Docker Compose
+#
+# 用法:
+#   cd trajectory_project
+#   export ROS_MASTER_URI=http://192.168.x.x:11311
+#
+#   # RL 控制器 + Benchmark
+#   docker-compose -f docker/docker-compose.yml run rl_benchmark
+#
+#   # NMPC 控制器 + Benchmark
+#   docker-compose -f docker/docker-compose.yml run nmpc_benchmark
+#
+#   # 只跑 RL 控制器
+#   docker-compose -f docker/docker-compose.yml run rl_only
+# ===========================================================================
+
+version: "3.8"
+
+x-common: &common
+  image: uav_benchmark:latest
+  network_mode: host
+  privileged: true
+  volumes:
+    - ./benchmark_results:/results
+  environment:
+    - ROS_MASTER_URI=${ROS_MASTER_URI:-http://localhost:11311}
+    - ROS_IP=${ROS_IP:-0.0.0.0}
+
+services:
+  # RL 控制器 + Benchmark (最常用)
+  rl_benchmark:
+    <<: *common
+    environment:
+      - CONTROLLER=rl+benchmark
+      - ROS_MASTER_URI=${ROS_MASTER_URI:-http://localhost:11311}
+      - ODOM_TOPIC=${ODOM_TOPIC:-/vio/odometry_enu}
+
+  # NMPC 控制器 + Benchmark
+  nmpc_benchmark:
+    <<: *common
+    environment:
+      - CONTROLLER=nmpc+benchmark
+      - ROS_MASTER_URI=${ROS_MASTER_URI:-http://localhost:11311}
+      - ODOM_TOPIC=${ODOM_TOPIC:-/vio/odometry_enu}
+
+  # 单独 RL 控制器
+  rl_only:
+    <<: *common
+    environment:
+      - CONTROLLER=rl
+      - ROS_MASTER_URI=${ROS_MASTER_URI:-http://localhost:11311}
+      - ODOM_TOPIC=${ODOM_TOPIC:-/vio/odometry_enu}
+
+  # 单独 NMPC 控制器
+  nmpc_only:
+    <<: *common
+    environment:
+      - CONTROLLER=nmpc
+      - ROS_MASTER_URI=${ROS_MASTER_URI:-http://localhost:11311}
+      - ODOM_TOPIC=${ODOM_TOPIC:-/vio/odometry_enu}
+
+  # 单独 Benchmark (控制器在宿主机运行)
+  benchmark_only:
+    <<: *common
+    environment:
+      - CONTROLLER=benchmark
+      - ROS_MASTER_URI=${ROS_MASTER_URI:-http://localhost:11311}
+      - ODOM_TOPIC=${ODOM_TOPIC:-/vio/odometry_enu}

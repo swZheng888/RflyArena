@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- Task 2: 动态轨迹测试 (适配3×3×2m空间) -->
+    <arg name="trajectory_type" default="figure8" />
+    <arg name="speed_level" default="1.0" />
+    <arg name="task_duration" default="40.0" />
+    <arg name="enable_performance_monitor" default="false" />
+    
+    <include file="$(find benchmark_utils)/launch/benchmark.launch">
+        <arg name="task_type" value="dynamic" />
+        <arg name="trajectory_type" value="$(arg trajectory_type)" />
+        <arg name="speed_level" value="$(arg speed_level)" />
+        <arg name="task_duration" value="$(arg task_duration)" />
+        <arg name="enable_performance_monitor" value="$(arg enable_performance_monitor)" />
+    </include>
+</launch>

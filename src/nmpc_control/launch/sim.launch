@@ -1,0 +1,62 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- ===================================================== -->
+    <!-- NMPC 控制节点启动文件 - 仿真环境 -->
+    <!-- ===================================================== -->
+    
+    <!-- ==================== 基本参数 ==================== -->
+    <!-- debug_flag: 调试模式开关，1=开启可视化发布，0=关闭 -->
+    <arg name="debug_flag" default="0" />
+    
+    <!-- coordinate_frame: 坐标系/定位源选择 -->
+    <!-- 0 = VIO (视觉惯性里程计) /vio/odometry -->
+    <!-- 1 = MAVROS 里程计 /mavros/local_position/odom -->
+    <!-- 2 = VICON (动作捕捉系统) /vrpn_client_node/xxx/odometry -->
+    <arg name="coordinate_frame" default="0" />
+    
+    <!-- use_flat_traj: 轨迹消息类型 -->
+    <!-- true = 使用平坦轨迹 PositionCommand (推荐) -->
+    <!-- false = 使用原始 pvq 轨迹 TrajectoryPoint -->
+    <arg name="use_flat_traj" default="true" />
+    
+    <!-- ==================== 轨迹参数 ==================== -->
+    <!-- start_threshold: 轨迹起点判定距离 (米)，到达此范围内开始轨迹跟踪 -->
+    <arg name="start_threshold" default="0.3" />
+    <!-- max_path_points: 可视化路径最大点数，超过此数量将丢弃旧点 -->
+    <arg name="max_path_points" default="2000" />
+    
+    <!-- ==================== 起飞参数 ==================== -->
+    <!-- takeoff_height: 起飞目标高度 (米) -->
+    <arg name="takeoff_height" default="1.0" />
+    <!-- takeoff_vz_max: 起飞最大垂直速度 (m/s) -->
+    <arg name="takeoff_vz_max" default="0.5" />
+    <!-- takeoff_distance_threshold: 起飞完成判定距离 (米)，到达目标高度后判定 -->
+    <arg name="takeoff_distance_threshold" default="0.2" />
+    
+    <!-- ==================== 位置控制参数 ==================== -->
+    <!-- pos_ctrl_max_vel_xy: 位置控制模式最大水平速度 (米/秒) -->
+    <arg name="pos_ctrl_max_vel_xy" default="2.0" />
+    <!-- pos_ctrl_max_vel_z: 位置控制模式最大垂直速度 (米/秒) -->
+    <arg name="pos_ctrl_max_vel_z" default="1.0" />
+    <!-- pos_ctrl_max_yaw_rate: 位置控制模式最大偏航角速度 (弧度/秒) -->
+    <arg name="pos_ctrl_max_yaw_rate" default="1.0" />
+    
+    <!-- ==================== 控制节点 ==================== -->
+    <node pkg="nmpc_control" type="control_nmpc_node.py" name="control_node" output="screen">
+        <param name="debug_flag" value="$(arg debug_flag)" />
+        <param name="coordinate_frame" value="$(arg coordinate_frame)" />
+        <param name="use_flat_traj" value="$(arg use_flat_traj)" />
+        
+        <param name="start_threshold" value="$(arg start_threshold)" />
+        <param name="max_path_points" value="$(arg max_path_points)" />
+        
+        <param name="takeoff_height" value="$(arg takeoff_height)" />
+        <param name="takeoff_vz_max" value="$(arg takeoff_vz_max)" />
+        <param name="takeoff_distance_threshold" value="$(arg takeoff_distance_threshold)" />
+        
+        <param name="pos_ctrl_max_vel_xy" value="$(arg pos_ctrl_max_vel_xy)" />
+        <param name="pos_ctrl_max_vel_z" value="$(arg pos_ctrl_max_vel_z)" />
+        <param name="pos_ctrl_max_yaw_rate" value="$(arg pos_ctrl_max_yaw_rate)" />
+    </node>
+    
+</launch>

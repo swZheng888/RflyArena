@@ -1,0 +1,34 @@
+# Catkin / ROS build outputs
+build/
+devel/
+install/
+logs/
+.catkin_tools/
+
+# Python caches
+__pycache__/
+*.py[cod]
+
+# Benchmark outputs
+docker_logs/
+src/benchmark_results/
+*.bag
+*.active
+*.csv.bak
+
+# Editor / OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+*.lnk
+
+# Temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Local environment files
+.env

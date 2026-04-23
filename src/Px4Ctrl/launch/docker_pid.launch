@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- =============================================== -->
+    <!-- Docker PID 控制器启动文件 (仅控制器) -->
+    <!-- 里程计由宿主机 rflysim_odom_node.py 发布 -->
+    <!-- =============================================== -->
+
+    <!-- ==================== 话题配置 ==================== -->
+    <arg name="odom_topic" default="/vio/odometry_enu" />  <!-- 宿主机发布 -->
+    <arg name="position_cmd_topic" default="/position_cmd" />
+
+    <!-- ==================== 节点启动 ==================== -->
+
+    <!-- Px4Ctrl 控制节点 (不启动 odom 节点，由宿主机提供) -->
+    <node pkg="px4ctrl" type="px4ctrl_node" name="px4ctrl" output="screen">
+        <remap from="~odom" to="$(arg odom_topic)" />
+        <remap from="~cmd" to="$(arg position_cmd_topic)" />
+        <rosparam command="load" file="$(find px4ctrl)/config/ctrl_param_fpv.yaml" />
+    </node>
+
+    <!-- 自动起飞节点：默认禁用，由 entrypoint.sh 统一处理 -->
+    <arg name="auto_takeoff" default="false" />
+    <arg name="takeoff_delay" default="5.0" />
+
+    <node pkg="px4ctrl" type="auto_takeoff.sh" name="auto_takeoff"
+          args="$(arg takeoff_delay)"
+          output="screen"
+          if="$(arg auto_takeoff)" />
+
+</launch>

@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- Task 1: 悬停稳态测试 (适配3×3×2m空间) -->
+    <include file="$(find benchmark_utils)/launch/benchmark.launch">
+        <arg name="task_type" value="hover" />
+        <arg name="task_duration" value="30.0" />
+        <arg name="hover_hold_time" value="5.0" />
+        <arg name="enable_performance_monitor" value="false" />
+    </include>
+</launch>

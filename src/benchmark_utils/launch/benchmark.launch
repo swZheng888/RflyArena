@@ -1,0 +1,90 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- =============================================== -->
+    <!-- Benchmark 系统启动文件（重构版）-->
+    <!-- 节点: benchmark_node + logger + performance_monitor -->
+    <!-- =============================================== -->
+    
+    <!-- ==================== 基本配置 ==================== -->
+    <arg name="task_type" default="hover" />  <!-- hover / dynamic -->
+    <arg name="coordinate_frame" default="0" />  <!-- 0=NED, 1=ENU -->
+    <arg name="rate" default="100.0" />
+    <arg name="log_dir" default="~/.benchmark_logs" />
+    
+    <!-- ==================== 任务时间 ==================== -->
+    <arg name="task_duration" default="30.0" />
+    
+    <!-- ==================== 起飞与起始点 ==================== -->
+    <arg name="takeoff_height_threshold" default="0.8" />
+    <arg name="takeoff_stable_time" default="2.0" />
+    <arg name="start_pos_tolerance" default="0.2" />
+    <arg name="start_stabilize_time" default="2.0" />
+    
+    <!-- ==================== 话题配置 ==================== -->
+    <arg name="odom_topic" default="/vio/odometry" />
+    <arg name="position_cmd_topic" default="/position_cmd" />
+    
+    <!-- ==================== Task 1: 悬停参数 ==================== -->
+    <arg name="hover_points" default="[[0.0, 0.0, 1.0], [0.8, 0.0, 1.0], [0.0, 0.8, 1.0], [-0.8, 0.0, 1.0], [0.0, -0.8, 1.0], [0.0, 0.0, 1.0]]" />
+    <arg name="hover_hold_time" default="5.0" />
+    <arg name="hover_switch_threshold" default="0.2" />
+    
+    <!-- ==================== Task 2: 动态轨迹参数 ==================== -->
+    <arg name="trajectory_type" default="figure8" />
+    <arg name="trajectory_speed" default="0.8" />
+    <arg name="trajectory_amplitude" default="2.0" />  <!-- 5x5x5空间，现实飞行可改为0.6 -->
+    <arg name="speed_level" default="1.0" />
+    <arg name="num_loops" default="2" />
+    
+    <!-- ==================== Task 4: 性能监控 ==================== -->
+    <arg name="enable_performance_monitor" default="false" />
+    <arg name="target_node_name" default="nmpc_control_node" />
+    
+    <!-- ==================== 节点启动 ==================== -->
+    
+    <!-- 1. Benchmark节点（状态机+轨迹发布） -->
+    <node pkg="benchmark_utils" type="benchmark_node.py" name="benchmark_node" output="screen">
+        <!-- 基本参数 -->
+        <param name="task_type" value="$(arg task_type)" />
+        <param name="coordinate_frame" value="$(arg coordinate_frame)" />
+        <param name="frame_id" value="world" />
+        <param name="rate" value="$(arg rate)" />
+        <param name="task_duration" value="$(arg task_duration)" />
+        <param name="log_dir" value="$(arg log_dir)" />
+        
+        <!-- 起飞与起始点 -->
+        <param name="takeoff_height_threshold" value="$(arg takeoff_height_threshold)" />
+        <param name="takeoff_stable_time" value="$(arg takeoff_stable_time)" />
+        <param name="start_pos_tolerance" value="$(arg start_pos_tolerance)" />
+        <param name="start_stabilize_time" value="$(arg start_stabilize_time)" />
+        
+        <!-- 话题 -->
+        <param name="odom_topic" value="$(arg odom_topic)" />
+        <param name="position_cmd_topic" value="$(arg position_cmd_topic)" />
+        
+        <!-- Task 1参数 -->
+        <param name="hover_points" value="$(arg hover_points)" />
+        <param name="hover_hold_time" value="$(arg hover_hold_time)" />
+        <param name="hover_switch_threshold" value="$(arg hover_switch_threshold)" />
+        
+        <!-- Task 2参数 -->
+        <param name="trajectory_type" value="$(arg trajectory_type)" />
+        <param name="trajectory_speed" value="$(arg trajectory_speed)" />
+        <param name="trajectory_amplitude" value="$(arg trajectory_amplitude)" />
+        <param name="speed_level" value="$(arg speed_level)" />
+        <param name="num_loops" value="$(arg num_loops)" />
+    </node>
+    
+    <!-- 2. Logger节点（数据记录） -->
+    <node pkg="benchmark_utils" type="benchmark_logger.py" name="benchmark_logger" output="screen">
+        <param name="log_dir" value="$(arg log_dir)" />
+    </node>
+    
+    <!-- 3. Performance Monitor节点（可选） -->
+    <node pkg="benchmark_utils" type="performance_monitor.py" name="performance_monitor" 
+          if="$(arg enable_performance_monitor)" output="screen">
+        <param name="target_node_name" value="$(arg target_node_name)" />
+        <param name="log_dir" value="$(arg log_dir)" />
+    </node>
+    
+</launch>

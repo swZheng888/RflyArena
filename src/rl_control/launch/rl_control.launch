@@ -1,0 +1,56 @@
+<launch>
+  <!-- rl_control launch file -->
+  <!-- 使用方法（与 nmpc_control launch 对齐）：
+    roslaunch rl_control rl_control.launch \
+        model_path:=/path/to/policy.onnx \
+        takeoff_height:=1.0
+  -->
+
+  <arg name="model_path"         default=""                            doc="policy.onnx 的绝对路径（必须）"/>
+  <arg name="odom_topic"         default="/vio/odometry"               doc="里程计话题"/>
+  <arg name="position_cmd_topic" default="/position_cmd"               doc="平坦轨迹命令话题"/>
+  <arg name="attitude_cmd_topic" default="/mavros/setpoint_raw/attitude"/>
+
+  <!-- 控制参数 -->
+  <arg name="control_rate"       default="100"    doc="控制频率 Hz"/>
+  <arg name="thrust_range"       default="0.15"   doc="油门动作范围 ±"/>
+  <arg name="max_roll_rate"      default="2.0"    doc="最大滚转角速率 rad/s"/>
+  <arg name="max_pitch_rate"     default="2.0"    doc="最大俯仰角速率 rad/s"/>
+  <arg name="max_yaw_rate"       default="2.0"    doc="最大偏航角速率 rad/s"/>
+
+  <!-- 起飞参数 -->
+  <arg name="takeoff_height"     default="1.0"    doc="起飞目标高度 m"/>
+  <arg name="takeoff_vz_max"     default="0.5"    doc="最大上升速度 m/s"/>
+  <arg name="takeoff_dist_thr"   default="0.15"   doc="起飞到位判断阈值 m"/>
+  <arg name="start_threshold"    default="0.3"    doc="到达轨迹起点阈值 m"/>
+  <arg name="skip_takeoff"       default="false"  doc="跳过起飞阶段（已手动起飞时）"/>
+
+  <!-- 调试 -->
+  <arg name="debug_flag"         default="0"      doc="1=开启 RViz 可视化话题"/>
+
+  <node pkg="rl_control"
+        type="control_rl_node.py"
+        name="control_rl_node"
+        output="screen"
+        required="true">
+
+    <param name="model_path"          value="$(arg model_path)"/>
+    <param name="odom_topic"          value="$(arg odom_topic)"/>
+    <param name="position_cmd_topic"  value="$(arg position_cmd_topic)"/>
+    <param name="attitude_cmd_topic"  value="$(arg attitude_cmd_topic)"/>
+
+    <param name="control_rate"        value="$(arg control_rate)"     type="int"/>
+    <param name="thrust_range"        value="$(arg thrust_range)"     type="double"/>
+    <param name="max_roll_rate"       value="$(arg max_roll_rate)"    type="double"/>
+    <param name="max_pitch_rate"      value="$(arg max_pitch_rate)"   type="double"/>
+    <param name="max_yaw_rate"        value="$(arg max_yaw_rate)"     type="double"/>
+
+    <param name="takeoff_height"      value="$(arg takeoff_height)"   type="double"/>
+    <param name="takeoff_vz_max"      value="$(arg takeoff_vz_max)"   type="double"/>
+    <param name="takeoff_dist_thr"    value="$(arg takeoff_dist_thr)" type="double"/>
+    <param name="start_threshold"     value="$(arg start_threshold)"  type="double"/>
+    <param name="skip_takeoff"        value="$(arg skip_takeoff)"     type="bool"/>
+
+    <param name="debug_flag"          value="$(arg debug_flag)"       type="int"/>
+  </node>
+</launch>

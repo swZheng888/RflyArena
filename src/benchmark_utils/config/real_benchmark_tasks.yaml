@@ -1,0 +1,89 @@
+# ============================================================
+# 统一 Benchmark 任务配置
+# ============================================================
+# 用于 real_benchmark_node.py (launch) 和 benchmark_node.py (sh)
+# 仿真/真机 使用同一份配置，保证轨迹一致
+# ============================================================
+
+# 安全悬停点 (ENU)
+hover_point: [0.0, 0.0, 1.0]
+
+# 任务间悬停过渡时间 (s)
+hover_transit_time: 5.0
+
+# 到达起点后稳定时间 (s)
+stabilize_time: 3.0
+
+# 到达起点容差 (m)
+start_pos_tolerance: 0.3
+
+# 移动到起点超时 (s)
+move_timeout: 30.0
+
+# ============================================================
+# 统一轨迹参数 (仿真 & 真机 一致)
+# ============================================================
+trajectory_radius: 1.0    # 轨迹半径 (m)
+trajectory_height: 1.0    # 飞行高度 (m)
+num_loops: 2              # 每个轨迹飞 2 圈
+
+# 安全限高与降落
+max_height: 1.5           # 高度硬限 (m)
+land_vz: 0.3              # 降落速度 m/s
+land_threshold: 0.08      # 判定落地高度 m
+
+# ============================================================
+# 任务列表 (每项飞 2 圈后自动结束)
+# ============================================================
+tasks:
+  # ── A1: 悬停 ──
+  - name: "A1_hover"
+    type: hover
+    duration: 10
+
+  # # ── A2: 可行轨迹 @1.0x ──
+  - name: "A2_circle_1x"
+    type: dynamic
+    trajectory: circle
+    speed: 1.0
+
+  - name: "A2_figure8_1x"
+    type: dynamic
+    trajectory: figure8
+    speed: 1.0
+
+  - name: "A2_ellipse_1x"
+    type: dynamic
+    trajectory: ellipse
+    speed: 1.0
+
+  # ── A3: 可行轨迹 @2.0x ──
+  - name: "A3_circle_3x"
+    type: dynamic
+    trajectory: circle
+    speed: 3.0
+
+  - name: "A3_figure8_3x"
+    type: dynamic
+    trajectory: figure8
+    speed: 3.0
+
+  - name: "A3_ellipse_3x"
+    type: dynamic
+    trajectory: ellipse
+    speed: 3.0
+
+  # ── A4: 不可行轨迹 (zigzag + star, 低速/高速) ──
+  - name: "A4_zigzag_0.3x"
+    type: dynamic
+    trajectory: zigzag
+    speed: 0.3
+
+  - name: "A4_star_0.3x"
+    type: dynamic
+    trajectory: star
+    speed: 0.3
+
+  - name: "A1_hover"
+    type: hover
+    duration: 10

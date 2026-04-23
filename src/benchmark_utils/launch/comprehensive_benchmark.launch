@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- =============================================== -->
+    <!-- 综合评估Launch文件 -->
+    <!-- 顺序执行：悬停 + 多速度动态轨迹测试 -->
+    <!-- =============================================== -->
+    
+    <!-- 日志目录 -->
+    <arg name="log_dir" default="~/.benchmark_logs" />
+    
+    <!-- 综合评估器节点 -->
+    <node pkg="benchmark_utils" type="comprehensive_benchmark.py" 
+          name="comprehensive_benchmark" output="screen">
+        <param name="log_dir" value="$(arg log_dir)" />
+    </node>
+
+</launch>

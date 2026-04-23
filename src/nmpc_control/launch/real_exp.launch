@@ -1,0 +1,77 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- ==================== NMPC 控制节点启动文件 ==================== -->
+    <!-- 真实飞行环境专用配置 -->
+    <!-- ⚠️ 安全警告: 此文件用于真实飞行，请务必确认所有参数 -->
+
+    <!-- ==================== 串口与通信参数 ==================== -->
+    <arg name="fcu_url" default="/dev/ttyUSB0:921600"/>
+    <arg name="gcs_url" default=""/>
+    <arg name="launch_mavros" default="true"/>
+    <arg name="launch_rviz" default="false"/>
+
+    <!-- ==================== 基本参数 ==================== -->
+    <arg name="debug_flag" default="0"/>
+    <arg name="coordinate_frame" default="1"/>
+    <arg name="use_flat_traj" default="true"/>
+
+    <!-- ==================== 轨迹参数 ==================== -->
+    <arg name="start_threshold" default="0.3"/>
+    <arg name="max_path_points" default="2000"/>
+
+    <!-- ==================== 起飞参数 ==================== -->
+    <arg name="takeoff_height" default="1.0"/>
+    <arg name="takeoff_vz_max" default="0.5"/>  <!-- 起飞最大垂直速度 (m/s) -->
+    <arg name="takeoff_distance_threshold" default="0.2"/>
+
+    <!-- ==================== 位置控制参数 ==================== -->
+    <arg name="pos_ctrl_max_vel_xy" default="1.0"/>
+    <arg name="pos_ctrl_max_vel_z" default="0.5"/>
+    <arg name="pos_ctrl_max_yaw_rate" default="0.5"/>
+
+    <!-- ==================== MAVROS ==================== -->
+    <group if="$(arg launch_mavros)">
+        <include file="$(find mavros)/launch/px4.launch">
+            <arg name="fcu_url" value="$(arg fcu_url)"/>
+            <arg name="gcs_url" value="$(arg gcs_url)"/>
+        </include>
+    </group>
+
+    <!-- ==================== 控制节点 ==================== -->
+    <node pkg="nmpc_control" 
+          type="control_nmpc_node.py" 
+          name="control_node" 
+          output="screen"
+          respawn="false">
+        <param name="debug_flag" value="$(arg debug_flag)"/>
+        <param name="coordinate_frame" value="$(arg coordinate_frame)"/>
+        <param name="use_flat_traj" value="$(arg use_flat_traj)"/>
+        
+        <param name="start_threshold" value="$(arg start_threshold)"/>
+        <param name="max_path_points" value="$(arg max_path_points)"/>
+        
+        <param name="takeoff_height" value="$(arg takeoff_height)"/>
+        <param name="takeoff_vz_max" value="$(arg takeoff_vz_max)"/>
+        <param name="takeoff_distance_threshold" value="$(arg takeoff_distance_threshold)"/>
+        
+        <param name="pos_ctrl_max_vel_xy" value="$(arg pos_ctrl_max_vel_xy)"/>
+        <param name="pos_ctrl_max_vel_z" value="$(arg pos_ctrl_max_vel_z)"/>
+        <param name="pos_ctrl_max_yaw_rate" value="$(arg pos_ctrl_max_yaw_rate)"/>
+    </node>
+
+    <!-- ==================== RViz 可视化 ==================== -->
+    <group if="$(arg launch_rviz)">
+        <node pkg="rviz" 
+              type="rviz" 
+              name="rviz" 
+              args="-d $(find nmpc_control)/rviz/control.rviz"
+              required="false"/>
+    </group>
+
+    <!-- ==================== TF 静态变换 ==================== -->
+    <node pkg="tf2_ros" 
+          type="static_transform_publisher" 
+          name="map_to_world" 
+          args="0 0 0 0 0 0 map world"/>
+
+</launch>

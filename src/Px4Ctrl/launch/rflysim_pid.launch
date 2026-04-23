@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- =============================================== -->
+    <!-- RflySim + Px4Ctrl (SO3/PID) 联合仿真启动文件 -->
+    <!-- =============================================== -->
+    
+    <!-- ==================== 基本配置 ==================== -->
+    <arg name="copter_id" default="1" />
+    
+    <!-- ==================== 坐标系配置 ==================== -->
+    <arg name="frame_id" default="map" />
+    <arg name="child_frame_id" default="base_link" />
+    
+    <!-- ==================== 话题配置 ==================== -->
+    <arg name="odom_topic" default="/vio/odometry_enu" />
+    <arg name="position_cmd_topic" default="/position_cmd" />
+    
+    <!-- ==================== 节点启动 ==================== -->
+    
+    <!-- 1. RflySim里程计节点 (从rflysim获取VIO并转换为ENU) -->
+    <node pkg="nmpc_control" type="rflysim_odom_node.py" name="rflysim_odom_node" output="screen">
+        <param name="copter_id" value="$(arg copter_id)" />
+        <param name="rate" value="200.0" />
+        <param name="frame_id" value="$(arg frame_id)" />
+        <param name="child_frame_id" value="$(arg child_frame_id)" />
+        <param name="odom_topic" value="/vio/odometry" />
+        <param name="odom_enu_topic" value="/vio/odometry_enu" />
+    </node>
+    
+    <!-- 2. Px4Ctrl控制节点 -->
+    <node pkg="px4ctrl" type="px4ctrl_node" name="px4ctrl" output="screen">
+        <!-- 里程计话题 (ENU坐标系) -->
+        <remap from="~odom" to="$(arg odom_topic)" />
+        
+        <!-- 命令话题 -->
+        <remap from="~cmd" to="$(arg position_cmd_topic)" />
+
+        <!-- 参数文件 -->
+        <rosparam command="load" file="$(find px4ctrl)/config/ctrl_param_fpv.yaml" />
+    </node>
+    
+    <!-- 3. 自动起飞节点 (延迟后发送起飞命令) -->
+    <arg name="auto_takeoff" default="true" />
+    <arg name="takeoff_delay" default="10.0" />
+    
+    <node pkg="px4ctrl" type="auto_takeoff.sh" name="auto_takeoff" 
+          args="$(arg takeoff_delay)"
+          output="screen"
+          if="$(arg auto_takeoff)" />
+ 
+</launch>

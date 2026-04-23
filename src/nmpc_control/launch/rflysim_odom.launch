@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- =============================================== -->
+    <!-- RflySim 里程计独立启动文件                      -->
+    <!-- 用于 Docker 控制器模式：宿主机跑 odom，Docker 跑控制器 -->
+    <!-- =============================================== -->
+
+    <arg name="copter_id" default="1" />
+    <arg name="rate" default="200.0" />
+    <arg name="frame_id" default="map" />
+    <arg name="child_frame_id" default="base_link" />
+
+    <!-- 发布话题 -->
+    <arg name="odom_topic" default="/vio/odometry" doc="NED 里程计" />
+    <arg name="odom_enu_topic" default="/vio/odometry_enu" doc="ENU 里程计" />
+
+    <!-- MAVROS (RFlySim 通信) -->
+    <include file="$(find mavros)/launch/px4.launch">
+        <arg name="fcu_url" value="udp://:20100@127.0.0.1:20101" />
+    </include>
+
+    <!-- RflySim 里程计节点 -->
+    <node pkg="nmpc_control" type="rflysim_odom_node.py" name="rflysim_odom_node" output="screen">
+        <param name="copter_id" value="$(arg copter_id)" />
+        <param name="rate" value="$(arg rate)" />
+        <param name="frame_id" value="$(arg frame_id)" />
+        <param name="child_frame_id" value="$(arg child_frame_id)" />
+        <param name="odom_topic" value="$(arg odom_topic)" />
+        <param name="odom_enu_topic" value="$(arg odom_enu_topic)" />
+    </node>
+
+</launch>

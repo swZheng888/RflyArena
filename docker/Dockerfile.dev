@@ -1,0 +1,215 @@
+#############################################################################
+# UAV Control Benchmark Docker Image - Development Version
+# 开发版镜像：包含调试工具、源码编辑支持
+#############################################################################
+
+FROM ros:noetic-ros-base-focal
+
+LABEL maintainer="UAV Benchmark Team"
+LABEL description="Development environment for UAV control benchmark"
+LABEL version="1.0.0-dev"
+
+# ============================================================================
+# 环境变量
+# ============================================================================
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ROS_DISTRO=noetic
+ENV WORKSPACE=/root/catkin_ws
+ENV ACADOS_SOURCE_DIR=/opt/acados
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/acados/lib
+ENV PYTHONPATH=$PYTHONPATH:/opt/acados/interfaces/acados_template
+
+# ============================================================================
+# 基础依赖 + 开发工具
+# ============================================================================
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # 编译工具
+    build-essential \
+    cmake \
+    git \
+    wget \
+    curl \
+    # Python
+    python3-pip \
+    python3-dev \
+    python3-numpy \
+    python3-scipy \
+    python3-matplotlib \
+    # ROS 依赖
+    python3-catkin-tools \
+    python3-rosdep \
+    python3-rosinstall \
+    ros-noetic-mavros \
+    ros-noetic-mavros-extras \
+    ros-noetic-tf2-ros \
+    ros-noetic-tf2-geometry-msgs \
+    ros-noetic-eigen-conversions \
+    ros-noetic-rqt \
+    ros-noetic-rqt-common-plugins \
+    ros-noetic-rviz \
+    ros-noetic-plotjuggler-ros \
+    # 数学库
+    libeigen3-dev \
+    liblapack-dev \
+    libblas-dev \
+    # ========================================
+    # 开发调试工具
+    # ========================================
+    # 编辑器
+    vim \
+    nano \
+    # 调试
+    gdb \
+    valgrind \
+    strace \
+    ltrace \
+    # 性能分析
+    htop \
+    iotop \
+    sysstat \
+    procps \
+    linux-tools-generic \
+    # 网络调试
+    net-tools \
+    iputils-ping \
+    tcpdump \
+    netcat \
+    # 文件工具
+    tree \
+    less \
+    jq \
+    # 终端工具
+    tmux \
+    screen \
+    # Python 调试
+    python3-debugpy \
+    && rm -rf /var/lib/apt/lists/*
+
+# ============================================================================
+# 安装 GeographicLib
+# ============================================================================
+RUN wget https://raw.githubusercontent.com/mavlink/mavros/master/mavros/scripts/install_geographiclib_datasets.sh \
+    && chmod +x install_geographiclib_datasets.sh \
+    && ./install_geographiclib_datasets.sh \
+    && rm install_geographiclib_datasets.sh
+
+# ============================================================================
+# Python 依赖 (包含开发工具)
+# ============================================================================
+RUN pip3 install --no-cache-dir \
+    # 科学计算
+    numpy==1.24.0 \
+    scipy==1.10.0 \
+    pandas==2.0.0 \
+    # 优化
+    optuna==3.3.0 \
+    casadi==3.6.3 \
+    # 可视化
+    matplotlib==3.7.0 \
+    seaborn==0.12.0 \
+    plotly==5.15.0 \
+    # 工具
+    PyYAML==6.0 \
+    tqdm==4.65.0 \
+    psutil==5.9.0 \
+    # ========================================
+    # 开发工具
+    # ========================================
+    ipython \
+    jupyter \
+    jupyterlab \
+    pytest \
+    pytest-cov \
+    pylint \
+    black \
+    mypy \
+    # 性能分析
+    py-spy \
+    memory_profiler \
+    line_profiler
+
+# ============================================================================
+# 安装 ACADOS
+# ============================================================================
+WORKDIR /opt
+RUN git clone https://github.com/acados/acados.git --depth 1 \
+    && cd acados \
+    && git submodule update --init --recursive --depth 1 \
+    && mkdir -p build && cd build \
+    && cmake .. \
+        -DACADOS_WITH_QPOASES=ON \
+        -DACADOS_WITH_OSQP=ON \
+        -DACADOS_INSTALL_DIR=/opt/acados \
+    && make -j$(nproc) \
+    && make install \
+    && pip3 install -e /opt/acados/interfaces/acados_template
+
+# ============================================================================
+# 创建工作空间
+# ============================================================================
+RUN mkdir -p ${WORKSPACE}/src
+
+# ============================================================================
+# 开发环境配置
+# ============================================================================
+
+# Tmux 配置
+RUN echo 'set -g mouse on' >> /root/.tmux.conf && \
+    echo 'set -g history-limit 10000' >> /root/.tmux.conf && \
+    echo 'bind | split-window -h' >> /root/.tmux.conf && \
+    echo 'bind - split-window -v' >> /root/.tmux.conf
+
+# Vim 配置
+RUN echo 'syntax on' >> /root/.vimrc && \
+    echo 'set number' >> /root/.vimrc && \
+    echo 'set tabstop=4' >> /root/.vimrc && \
+    echo 'set shiftwidth=4' >> /root/.vimrc && \
+    echo 'set expandtab' >> /root/.vimrc && \
+    echo 'set autoindent' >> /root/.vimrc
+
+# Bash 配置
+RUN echo '' >> /root/.bashrc && \
+    echo '# ROS Environment' >> /root/.bashrc && \
+    echo 'source /opt/ros/noetic/setup.bash' >> /root/.bashrc && \
+    echo '[ -f ${WORKSPACE}/devel/setup.bash ] && source ${WORKSPACE}/devel/setup.bash' >> /root/.bashrc && \
+    echo '' >> /root/.bashrc && \
+    echo '# Aliases' >> /root/.bashrc && \
+    echo 'alias cm="cd ${WORKSPACE} && catkin_make"' >> /root/.bashrc && \
+    echo 'alias cb="cd ${WORKSPACE} && catkin build"' >> /root/.bashrc && \
+    echo 'alias src="source ${WORKSPACE}/devel/setup.bash"' >> /root/.bashrc && \
+    echo 'alias rn="rosnode list"' >> /root/.bashrc && \
+    echo 'alias rt="rostopic list"' >> /root/.bashrc && \
+    echo 'alias re="rostopic echo"' >> /root/.bashrc && \
+    echo 'alias rh="rostopic hz"' >> /root/.bashrc && \
+    echo '' >> /root/.bashrc && \
+    echo '# PS1 with git branch' >> /root/.bashrc && \
+    echo 'parse_git_branch() { git branch 2> /dev/null | sed -e "/^[^*]/d" -e "s/* \(.*\)/(\1)/"; }' >> /root/.bashrc && \
+    echo 'export PS1="\[\033[01;32m\]\u@docker\[\033[00m\]:\[\033[01;34m\]\w\[\033[33m\]\$(parse_git_branch)\[\033[00m\]\$ "' >> /root/.bashrc
+
+# ============================================================================
+# 资源监控工具
+# ============================================================================
+COPY docker/scripts/resource_monitor.py /usr/local/bin/
+RUN chmod +x /usr/local/bin/resource_monitor.py
+
+# ============================================================================
+# 入口脚本
+# ============================================================================
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# ============================================================================
+# 暴露端口
+# ============================================================================
+# Jupyter Lab
+EXPOSE 8888
+# ROS Master
+EXPOSE 11311
+
+# ============================================================================
+# 工作目录
+# ============================================================================
+WORKDIR ${WORKSPACE}
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["bash"]

@@ -1,0 +1,18 @@
+<launch>
+    <!-- ===================================================== -->
+    <!-- Benchmark Task 2: 抗扰能力测试 -->
+    <!-- ===================================================== -->
+    
+    <!-- 坐标系: ENU (East-North-Up) -->
+    
+    <include file="$(find benchmark_utils)/launch/benchmark.launch">
+        <arg name="task_type" value="disturbance"/>
+        <arg name="task_duration" value="30.0"/>
+        <arg name="start_delay" value="3.0"/>
+        <arg name="enable_logging" value="true"/>
+        <arg name="disturbance_type" value="step"/>
+        <arg name="disturbance_magnitude" value="0.5"/>
+        <arg name="disturbance_start_time" value="5.0"/>
+        <arg name="disturbance_duration" value="2.0"/>
+    </include>
+</launch>

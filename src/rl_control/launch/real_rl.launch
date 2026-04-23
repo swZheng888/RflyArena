@@ -1,0 +1,103 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- =============================================== -->
+    <!-- RL Controller 真机飞行启动文件                   -->
+    <!-- MAVROS + RL 控制器                              -->
+    <!-- VRPN + vrpn_to_odom 需提前单独启动                -->
+    <!-- =============================================== -->
+
+    <!-- ⚠️ 安全警告: 此文件用于真实飞行，请务必确认所有参数 -->
+
+    <!-- ==================== 串口与通信参数 ==================== -->
+    <arg name="fcu_url"       default="serial:///dev/ttyS7:921600"/>
+    <arg name="gcs_url"       default=""/>
+    <!-- ==================== 启动开关 ==================== -->
+    <arg name="launch_mavros" default="true"   doc="是否启动 MAVROS"/>
+    <arg name="launch_rviz"   default="false"  doc="是否启动 RViz"/>
+    <!-- ==================== RL 模型配置 ==================== -->
+    <arg name="model_path"    default="/root/trajectory_project/src/rl_control/model/v3.onnx"
+         doc="ONNX 模型路径（必须）"/>
+    <!-- ==================== 控制器参数 ==================== -->
+    <arg name="control_rate"       default="100"    doc="控制频率 Hz (对齐训练env decimation=2)"/>
+    <arg name="thrust_range"       default="0.3"    doc="油门动作范围 ± (训练env=0.3)"/>
+    <arg name="max_roll_rate"      default="3.84"   doc="最大滚转角速率 rad/s (220°/s)"/>
+    <arg name="max_pitch_rate"     default="3.84"   doc="最大俰仰角速率 rad/s (220°/s)"/>
+    <arg name="max_yaw_rate"       default="3.49"   doc="最大偏航角速率 rad/s (200°/s)"/>
+    <!-- ==================== Sim2Real 滤波参数 ==================== -->
+    <!-- 对齐训练env: motor_time_constant=0.04s / ang_vel_cmd_time_constant=0.02s -->
+    <arg name="throttle_filter_tau" default="0.04"  doc="油门EMA滤波τ(s), 对齐训练motor_time_constant"/>
+    <arg name="ang_vel_filter_tau"  default="0.02"  doc="角速度EMA滤波τ(s), 对齐训练ang_vel_cmd_time_constant"/>
+    <!-- ==================== 起飞参数 ==================== -->
+    <arg name="takeoff_height"     default="1.0"    doc="起飞目标高度 m"/>
+    <arg name="takeoff_vz_max"     default="0.5"    doc="最大上升速度 m/s"/>
+    <arg name="takeoff_dist_thr"   default="0.15"   doc="起飞到位判断阈值 m"/>
+    <arg name="start_threshold"    default="0.3"    doc="到达轨迹起点阈值 m"/>
+    <arg name="skip_takeoff"       default="false"  doc="跳过起飞阶段"/>
+    <!-- ==================== 调试 ==================== -->
+    <arg name="debug_flag"         default="0"      doc="1=开启 RViz 可视化话题"/>
+    <!-- ==================== 动捕配置 ==================== -->
+    <arg name="vrpn_object" default="droneyee8" doc="VRPN 刚体名称"/>
+
+    <!-- ==================== 话题配置 ==================== -->
+    <arg name="odom_topic"          default="/vrpn_client_node/$(arg vrpn_object)/0/odometry" doc="里程计话题"/>
+    <arg name="position_cmd_topic"  default="/position_cmd"               doc="轨迹命令话题"/>
+    <arg name="attitude_cmd_topic"  default="/mavros/setpoint_raw/attitude"/>
+    <!-- ============================================================ -->
+    <!-- 2. MAVROS (飞控通信)                                           -->
+    <!-- ============================================================ -->
+    <group if="$(arg launch_mavros)">
+        <include file="$(find mavros)/launch/px4.launch">
+            <arg name="fcu_url" value="$(arg fcu_url)"/>
+            <arg name="gcs_url" value="$(arg gcs_url)"/>
+        </include>
+    </group>
+
+    <!-- ============================================================ -->
+    <!-- 3. VRPN → PX4 位姿转发 (关键！PX4 需要外部位置才能切 Offboard)  -->
+    <!-- ============================================================ -->
+    <node pkg="topic_tools" type="relay" name="vrpn_to_vision_pose"
+          args="/vrpn_client_node/$(arg vrpn_object)/pose /mavros/vision_pose/pose"
+          output="screen"/>
+    <!-- ============================================================ -->
+    <!-- 4. RL 控制节点                                                -->
+    <!-- ============================================================ -->
+    <node pkg="rl_control" type="control_rl_node.py" name="control_rl_node"
+          output="screen" required="true">
+        <param name="model_path"          value="$(arg model_path)"/>
+        <param name="odom_topic"          value="$(arg odom_topic)"/>
+        <param name="position_cmd_topic"  value="$(arg position_cmd_topic)"/>
+        <param name="attitude_cmd_topic"  value="$(arg attitude_cmd_topic)"/>
+
+        <param name="control_rate"        value="$(arg control_rate)"     type="int"/>
+        <param name="thrust_range"        value="$(arg thrust_range)"     type="double"/>
+        <param name="max_roll_rate"       value="$(arg max_roll_rate)"    type="double"/>
+        <param name="max_pitch_rate"      value="$(arg max_pitch_rate)"   type="double"/>
+        <param name="max_yaw_rate"        value="$(arg max_yaw_rate)"     type="double"/>
+
+        <param name="takeoff_height"      value="$(arg takeoff_height)"   type="double"/>
+        <param name="takeoff_vz_max"      value="$(arg takeoff_vz_max)"   type="double"/>
+        <param name="takeoff_dist_thr"    value="$(arg takeoff_dist_thr)" type="double"/>
+        <param name="start_threshold"     value="$(arg start_threshold)"  type="double"/>
+        <param name="skip_takeoff"        value="$(arg skip_takeoff)"     type="bool"/>
+
+        <param name="debug_flag"          value="$(arg debug_flag)"       type="int"/>
+
+        <!-- Sim2Real 滤波 -->
+        <param name="throttle_filter_tau" value="$(arg throttle_filter_tau)" type="double"/>
+        <param name="ang_vel_filter_tau"  value="$(arg ang_vel_filter_tau)"  type="double"/>
+    </node>
+
+    <!-- ============================================================ -->
+    <!-- 5. TF 静态变换                                                -->
+    <!-- ============================================================ -->
+    <node pkg="tf2_ros" type="static_transform_publisher" name="map_to_world"
+          args="0 0 0 0 0 0 map world"/>
+
+    <!-- ============================================================ -->
+    <!-- 6. RViz (可选)                                                -->
+    <!-- ============================================================ -->
+    <group if="$(arg launch_rviz)">
+        <node pkg="rviz" type="rviz" name="rviz" required="false"/>
+    </group>
+
+</launch>

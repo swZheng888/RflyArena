@@ -1,0 +1,72 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- ================================================ -->
+    <!-- 真机安全 Benchmark 启动文件                        -->
+    <!-- 仿真: roslaunch benchmark_utils real_benchmark.launch -->
+    <!-- 真机: roslaunch benchmark_utils real_benchmark.launch odom_topic:=/vrpn_client_node/droneyee08/0/odometry -->
+    <!-- 开始: rostopic pub /real_benchmark/start std_msgs/Empty "{}" -->
+    <!-- 中止: rostopic pub /real_benchmark/abort std_msgs/Empty "{}" -->
+    <!-- ================================================ -->
+
+    <!-- ==================== 话题配置 ==================== -->
+    <!-- 仿真用 /vio/odometry_enu，真机用 VRPN 话题 -->
+    <arg name="odom_topic"
+         default="/vrpn_client_node/droneyee08/odometry"
+         doc="里程计话题: 仿真=/vio/odometry_enu 真机=/vrpn_client_node/droneyee08/odometry"/>
+    <arg name="position_cmd_topic" default="/position_cmd"/>
+
+    <!-- ==================== 任务配置 ==================== -->
+    <arg name="controller_name" default="pid"    doc="控制器名 (rl/nmpc/pid), 用于目录和文件名区分"/>
+    <arg name="tasks_file"
+         default="$(find benchmark_utils)/config/real_benchmark_tasks.yaml"
+         doc="YAML 任务清单路径"/>
+    <arg name="log_dir"
+         default="$(env HOME)/benchmark_results/$(arg controller_name)"
+         doc="日志根目录 (按控制器分目录)"/>
+
+    <!-- ==================== 参数 ==================== -->
+    <arg name="rate"          default="100"   doc="控制频率 Hz"/>
+    <arg name="frame_id"      default="world" doc="坐标系"/>
+    <arg name="repeats"       default="1"     doc="重复执行任务列表的次数"/>
+    <!-- 真机只采集数据不分析；仿真/离线设为 true 等节点执行后立即分析 -->
+    <arg name="run_analysis"  default="false" doc="任务完成后是否立即运行分析"/>
+    <!-- 录包开关 -->
+    <arg name="record_bag"      default="false" doc="是否同步录制 rosbag"/>
+    <arg name="bag_dir"         default="$(arg log_dir)" doc="bag 保存目录 (默认与日志同目录)"/>
+    <arg name="vrpn_object"     default="droneyee08" doc="VRPN 刚体名"/>
+
+    <!-- ==================== 节点 ==================== -->
+    <node pkg="benchmark_utils" type="real_benchmark_node.py"
+          name="real_benchmark_node" output="screen">
+
+        <param name="tasks_file"          value="$(arg tasks_file)"/>
+        <param name="odom_topic"          value="$(arg odom_topic)"/>
+        <param name="position_cmd_topic"  value="$(arg position_cmd_topic)"/>
+        <param name="log_dir"             value="$(arg log_dir)"/>
+        <param name="rate"                value="$(arg rate)"          type="int"/>
+        <param name="frame_id"            value="$(arg frame_id)"/>
+        <param name="repeats"             value="$(arg repeats)"       type="int"/>
+        <param name="run_analysis"        value="$(arg run_analysis)"  type="bool"/>
+    </node>
+
+    <!-- ==================== 录包 (可选) ==================== -->
+    <group if="$(arg record_bag)">
+        <node pkg="rosbag" type="record" name="rosbag_recorder"
+              args="-o $(arg bag_dir)/$(arg controller_name)_benchmark
+                    /position_cmd
+                    /vio/odometry_enu
+                    /mavros/setpoint_raw/attitude
+                    /mavros/state
+                    /mavros/vision_pose/pose
+                    /vrpn_client_node/$(arg vrpn_object)/pose
+                    /vrpn_client_node/$(arg vrpn_object)/odometry
+                    /rl_control/solve_time_ms
+                    /nmpc_control/solve_time_ms
+                    /nmpc_control/control_freq_hz
+                    /pid_control/solve_time_ms
+                    /control_node/mode
+                    /real_benchmark/start"
+              output="screen"/>
+    </group>
+
+</launch>

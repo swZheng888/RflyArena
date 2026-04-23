@@ -1,0 +1,11 @@
+# 禁用所有文件的换行符转换
+* -text
+# 或者明确指定不转换
+#* binary
+
+# 或者针对特定文件类型设置
+#*.txt -text
+#*.md -text
+#*.js -text
+#*.css -text
+#*.html -text

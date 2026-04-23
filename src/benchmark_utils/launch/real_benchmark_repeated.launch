@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- Repeated real-benchmark launcher -->
+
+    <arg name="odom_topic" default="/vrpn_client_node/droneyee08/odometry"/>
+    <arg name="position_cmd_topic" default="/position_cmd"/>
+
+    <arg name="controller_name" default="pid"/>
+    <arg name="tasks_file"
+         default="$(find benchmark_utils)/config/real_benchmark_tasks.yaml"/>
+    <arg name="log_dir"
+         default="$(env HOME)/benchmark_results/$(arg controller_name)"/>
+
+    <arg name="rate" default="100"/>
+    <arg name="frame_id" default="world"/>
+    <arg name="repeats" default="10"/>
+    <arg name="run_analysis" default="false"/>
+    <arg name="record_bag" default="false"/>
+    <arg name="bag_dir" default="$(arg log_dir)"/>
+    <arg name="vrpn_object" default="droneyee08"/>
+
+    <include file="$(find benchmark_utils)/launch/real_benchmark.launch">
+        <arg name="odom_topic" value="$(arg odom_topic)"/>
+        <arg name="position_cmd_topic" value="$(arg position_cmd_topic)"/>
+        <arg name="controller_name" value="$(arg controller_name)"/>
+        <arg name="tasks_file" value="$(arg tasks_file)"/>
+        <arg name="log_dir" value="$(arg log_dir)"/>
+        <arg name="rate" value="$(arg rate)"/>
+        <arg name="frame_id" value="$(arg frame_id)"/>
+        <arg name="repeats" value="$(arg repeats)"/>
+        <arg name="run_analysis" value="$(arg run_analysis)"/>
+        <arg name="record_bag" value="$(arg record_bag)"/>
+        <arg name="bag_dir" value="$(arg bag_dir)"/>
+        <arg name="vrpn_object" value="$(arg vrpn_object)"/>
+    </include>
+</launch>

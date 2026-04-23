@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- =============================================== -->
+    <!-- Docker 控制器启动文件 (仅控制器) -->
+    <!-- 里程计由宿主机 rflysim_odom_node.py 发布 -->
+    <!-- =============================================== -->
+
+    <!-- ==================== 坐标系配置 ==================== -->
+    <arg name="coordinate_frame" value="2" />  <!-- 2 = ENU 输入 -->
+
+    <!-- ==================== 话题配置 ==================== -->
+    <arg name="odom_topic" default="/vio/odometry_enu" />  <!-- 宿主机发布 -->
+    <arg name="position_cmd_topic" default="/position_cmd" />
+    <arg name="attitude_cmd_topic" default="/mavros/setpoint_raw/attitude" />
+    <arg name="rc_topic" default="/mavros/rc/in" />
+    <arg name="state_topic" default="/mavros/state" />
+
+    <!-- ==================== 控制器配置 ==================== -->
+    <arg name="takeoff_height" default="1.0" />
+    <arg name="takeoff_vz_max" default="0.5" />
+    <arg name="land_height" default="0.15" />
+    <arg name="kill_height" default="0.08" />
+    <arg name="use_trajectory_preview" default="true" />
+    <arg name="acc_threshold" default="3.0" />
+    <!-- Docker 模式：默认不跳过起飞，由 entrypoint.sh 统一处理 -->
+    <arg name="skip_takeoff" default="false" />
+
+    <!-- ==================== 节点启动 ==================== -->
+
+    <!-- NMPC 控制节点 (不启动 odom 节点，由宿主机提供) -->
+    <node pkg="nmpc_control" type="control_nmpc_node.py" name="nmpc_control_node" output="screen">
+        <param name="control_mode" value="1" />
+        <param name="use_flat_traj" value="true" />
+        <param name="coordinate_frame" value="$(arg coordinate_frame)" />
+        <param name="takeoff_height" value="$(arg takeoff_height)" />
+        <param name="takeoff_vz_max" value="$(arg takeoff_vz_max)" />
+        <param name="land_height" value="$(arg land_height)" />
+        <param name="kill_height" value="$(arg kill_height)" />
+        <param name="enable_logging" value="true" />
+        <param name="skip_takeoff" value="$(arg skip_takeoff)" />
+
+        <!-- 话题 -->
+        <param name="odom_topic" value="$(arg odom_topic)" />
+        <param name="position_cmd_topic" value="$(arg position_cmd_topic)" />
+        <param name="attitude_cmd_topic" value="$(arg attitude_cmd_topic)" />
+        <param name="rc_topic" value="$(arg rc_topic)" />
+        <param name="state_topic" value="$(arg state_topic)" />
+
+        <!-- 轨迹预览 -->
+        <param name="use_trajectory_preview" value="$(arg use_trajectory_preview)" />
+        <param name="acc_threshold" value="$(arg acc_threshold)" />
+    </node>
+
+</launch>

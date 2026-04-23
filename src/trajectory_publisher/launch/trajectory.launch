@@ -1,0 +1,30 @@
+<launch>
+    <node name="trajectory_publisher" pkg="trajectory_publisher" type="traj_pub_node.py" output="screen">
+        <param name="csv_files" value="circle.csv,figure8.csv"/>
+        <param name="csv_coord_type" value="1"/>  <!-- 0:NED, 1:ENU -->
+        <param name="odom_type" value="0"/>       <!-- 0:NED->ENU, 1:ENU -->
+        
+        <!-- 随机航点 -->
+        <param name="num_random_waypoints" value="4"/>
+        <rosparam param="random_range_x">[-20, 20]</rosparam>
+        <rosparam param="random_range_y">[-20, 20]</rosparam>
+        <rosparam param="random_range_z">[5, 15]</rosparam>
+        <param name="waypoint_hold_time" value="5.0"/>
+        
+        <!-- 轨迹起点悬停 -->
+        <param name="traj_start_hold_time" value="4.0"/>
+        
+        <!-- 多圈加速 -->
+        <param name="num_laps" value="3"/>
+        <param name="initial_speed_factor" value="1"/>
+        <param name="speed_increment" value="1"/>
+        <param name="max_speed_factor" value="3"/>
+        
+        <!-- 阈值 -->
+        <param name="waypoint_threshold" value="0.3"/>
+        <param name="start_threshold" value="0.2"/>
+        
+        <!-- 最终悬停 -->
+        <param name="final_hold_time" value="-1"/>
+    </node>
+</launch>

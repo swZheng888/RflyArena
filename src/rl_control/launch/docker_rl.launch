@@ -1,0 +1,69 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- =============================================== -->
+    <!-- Docker RL 控制器启动文件 (仅控制器)             -->
+    <!-- 里程计由宿主机 / VRPN / 仿真环境发布            -->
+    <!-- 参照 docker_nmpc.launch 统一接口                 -->
+    <!-- =============================================== -->
+
+    <!-- ==================== 话题配置 ==================== -->
+    <arg name="odom_topic"          default="/vio/odometry_enu"/>
+    <arg name="position_cmd_topic"  default="/position_cmd"/>
+    <arg name="attitude_cmd_topic"  default="/mavros/setpoint_raw/attitude"/>
+    <arg name="state_topic"         default="/mavros/state"/>
+
+    <!-- ==================== RL 模型 ==================== -->
+    <arg name="model_path"
+         default="$(find rl_control)/model/w1.onnx"
+         doc="ONNX 模型路径 (25D obs)"/>
+
+    <!-- ==================== 控制参数 (对齐训练env) ==================== -->
+    <arg name="control_rate"        default="100"/>
+    <arg name="thrust_range"        default="0.3"/>
+    <arg name="max_roll_rate"       default="3.84"/>
+    <arg name="max_pitch_rate"      default="3.84"/>
+    <arg name="max_yaw_rate"        default="3.49"/>
+    <arg name="throttle_filter_tau" default="0.04"/>
+    <arg name="ang_vel_filter_tau"  default="0.02"/>
+
+    <!-- ==================== 起飞参数 ==================== -->
+    <arg name="takeoff_height"    default="1.0"/>
+    <arg name="takeoff_vz_max"    default="0.5"/>
+    <arg name="takeoff_dist_thr"  default="0.15"/>
+    <arg name="start_threshold"   default="0.3"/>
+    <arg name="skip_takeoff"      default="false"/>
+
+    <!-- ==================== 调试 ==================== -->
+    <arg name="debug_flag"        default="0"/>
+
+    <!-- ==================== RL 控制节点 ==================== -->
+    <node pkg="rl_control" type="control_rl_node.py" name="control_rl_node"
+          output="screen" required="true">
+        <param name="model_path"          value="$(arg model_path)"/>
+        <param name="odom_topic"          value="$(arg odom_topic)"/>
+        <param name="position_cmd_topic"  value="$(arg position_cmd_topic)"/>
+        <param name="attitude_cmd_topic"  value="$(arg attitude_cmd_topic)"/>
+
+        <param name="control_rate"        value="$(arg control_rate)"     type="int"/>
+        <param name="thrust_range"        value="$(arg thrust_range)"     type="double"/>
+        <param name="max_roll_rate"       value="$(arg max_roll_rate)"    type="double"/>
+        <param name="max_pitch_rate"      value="$(arg max_pitch_rate)"   type="double"/>
+        <param name="max_yaw_rate"        value="$(arg max_yaw_rate)"     type="double"/>
+
+        <param name="takeoff_height"      value="$(arg takeoff_height)"   type="double"/>
+        <param name="takeoff_vz_max"      value="$(arg takeoff_vz_max)"   type="double"/>
+        <param name="takeoff_dist_thr"    value="$(arg takeoff_dist_thr)" type="double"/>
+        <param name="start_threshold"     value="$(arg start_threshold)"  type="double"/>
+        <param name="skip_takeoff"        value="$(arg skip_takeoff)"     type="bool"/>
+
+        <param name="debug_flag"          value="$(arg debug_flag)"       type="int"/>
+
+        <param name="throttle_filter_tau" value="$(arg throttle_filter_tau)" type="double"/>
+        <param name="ang_vel_filter_tau"  value="$(arg ang_vel_filter_tau)"  type="double"/>
+    </node>
+
+    <!-- TF -->
+    <node pkg="tf2_ros" type="static_transform_publisher" name="map_to_world"
+          args="0 0 0 0 0 0 map world"/>
+
+</launch>

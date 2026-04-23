@@ -1,0 +1,122 @@
+#############################################################################
+# Docker Compose - Development Environment
+# 开发环境：支持源码热重载、调试工具、Jupyter Lab
+#############################################################################
+
+version: "3.8"
+
+services:
+
+  # --------------------------------------------------------------------------
+  # ROS Master
+  # --------------------------------------------------------------------------
+  roscore:
+    image: ros:noetic-ros-core-focal
+    container_name: dev_roscore
+    command: roscore
+    networks:
+      - ros_network
+    restart: unless-stopped
+
+  # --------------------------------------------------------------------------
+  # 开发容器 (无资源限制，用于开发调试)
+  # --------------------------------------------------------------------------
+  dev:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    image: uav-benchmark:dev
+    container_name: dev_workspace
+    depends_on:
+      - roscore
+    environment:
+      - ROS_MASTER_URI=http://roscore:11311
+      - ROS_IP=dev_workspace
+      - DISPLAY=${DISPLAY:-:0}
+      - ENABLE_RESOURCE_MONITOR=false
+    volumes:
+      # 源码挂载 (可读写，支持热重载)
+      - ../src:/root/catkin_ws/src:rw
+      # 结果目录
+      - ../benchmark_results:/root/catkin_ws/benchmark_results:rw
+      - ../publication_plots:/root/catkin_ws/publication_plots:rw
+      - ../tuning_results:/root/catkin_ws/tuning_results:rw
+      # X11 (GUI 支持)
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      # SSH 密钥 (git 操作)
+      - ~/.ssh:/root/.ssh:ro
+      # Git 配置
+      - ~/.gitconfig:/root/.gitconfig:ro
+    networks:
+      - ros_network
+    ports:
+      - "8888:8888"  # Jupyter Lab
+      - "6006:6006"  # TensorBoard (RL)
+    stdin_open: true
+    tty: true
+    privileged: true  # 允许性能分析工具
+
+  # --------------------------------------------------------------------------
+  # Jupyter Lab 服务
+  # --------------------------------------------------------------------------
+  jupyter:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    image: uav-benchmark:dev
+    container_name: dev_jupyter
+    depends_on:
+      - roscore
+    environment:
+      - ROS_MASTER_URI=http://roscore:11311
+      - ROS_IP=dev_jupyter
+    command: >
+      bash -c "source /opt/ros/noetic/setup.bash &&
+               source /root/catkin_ws/devel/setup.bash 2>/dev/null || true &&
+               jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root
+               --NotebookApp.token='' --NotebookApp.password=''"
+    volumes:
+      - ../src:/root/catkin_ws/src:rw
+      - ../benchmark_results:/root/catkin_ws/benchmark_results:rw
+      - ../notebooks:/root/notebooks:rw
+    networks:
+      - ros_network
+    ports:
+      - "8889:8888"
+    stdin_open: true
+    tty: true
+
+  # --------------------------------------------------------------------------
+  # 资源受限测试容器 (Jetson Nano)
+  # --------------------------------------------------------------------------
+  test_nano:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: uav-benchmark:latest
+    container_name: dev_test_nano
+    depends_on:
+      - roscore
+    environment:
+      - ROS_MASTER_URI=http://roscore:11311
+      - ROS_IP=dev_test_nano
+      - ENABLE_RESOURCE_MONITOR=true
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 2G
+    cpu_count: 1
+    mem_limit: 2g
+    memswap_limit: 2g
+    volumes:
+      - ../src:/root/catkin_ws/src:ro
+      - ../benchmark_results:/root/catkin_ws/benchmark_results:rw
+    networks:
+      - ros_network
+    stdin_open: true
+    tty: true
+
+networks:
+  ros_network:
+    driver: bridge
