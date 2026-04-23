@@ -15,6 +15,9 @@ src/benchmark_results/
 *.bag
 *.active
 *.csv.bak
+bag_records/
+repeat_runs/
+src/nmpc_control/src/nmpc_control/utils/trajectory_generated.csv
 
 # Editor / OS
 .vscode/

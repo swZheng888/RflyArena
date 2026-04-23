@@ -149,79 +149,7 @@ def generate_figure8_trajectory(
 
 
 @torch.jit.script
-def generate_tilted_figure8_trajectory(
-    t: torch.Tensor,
-    a: torch.Tensor,
-    b: torch.Tensor,
-    omega: torch.Tensor,
-    height: torch.Tensor,
-    center_xy: torch.Tensor,
-    tilt_angle: float = 0.7854,  # 45° in radians (π/4)
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-    """
-    Generate tilted figure-8 trajectory: rotated around x-axis by tilt_angle.
-
-    Standard figure-8 in XY plane:
-        x_flat = a*sin(wt)
-        y_flat = b*sin(2wt)
-    After rotation by tilt_angle around x-axis:
-        x = x_flat
-        y = y_flat * cos(tilt_angle)
-        z = height + y_flat * sin(tilt_angle)
-
-    At 45°: y and z amplitudes are both b*0.707, creating 3D lemniscate.
-    """
-    num_envs = t.shape[0]
-    device = t.device
-
-    cos_tilt = float(0.7071067811865476)   # cos(45°)
-    sin_tilt = float(0.7071067811865476)   # sin(45°)
-
-    wt  = omega * t
-    wt2 = 2.0 * omega * t
-
-    # Flat figure-8 components
-    x_flat = a * torch.sin(wt)
-    y_flat = b * torch.sin(wt2)
-
-    # Velocity of flat components
-    dx_flat = a * omega * torch.cos(wt)
-    dy_flat = 2.0 * b * omega * torch.cos(wt2)
-
-    # Acceleration of flat components
-    ddx_flat = -a * omega * omega * torch.sin(wt)
-    ddy_flat = -4.0 * b * omega * omega * torch.sin(wt2)
-
-    # Position after tilt rotation around x-axis
-    pos = torch.zeros(num_envs, 3, device=device)
-    pos[:, 0] = center_xy[:, 0] + x_flat
-    pos[:, 1] = center_xy[:, 1] + y_flat * cos_tilt
-    pos[:, 2] = height + y_flat * sin_tilt
-
-    # Velocity after tilt
-    vel = torch.zeros(num_envs, 3, device=device)
-    vel[:, 0] = dx_flat
-    vel[:, 1] = dy_flat * cos_tilt
-    vel[:, 2] = dy_flat * sin_tilt
-
-    # Acceleration after tilt
-    acc = torch.zeros(num_envs, 3, device=device)
-    acc[:, 0] = ddx_flat
-    acc[:, 1] = ddy_flat * cos_tilt
-    acc[:, 2] = ddy_flat * sin_tilt
-
-    # Yaw follows horizontal velocity direction
-    speed_xy = torch.hypot(vel[:, 0], vel[:, 1])
-    yaw = torch.where(
-        speed_xy > 1e-3,
-        torch.atan2(vel[:, 1], vel[:, 0]),
-        torch.zeros_like(speed_xy)
-    )
-    yaw_rate = omega  # Simplified
-
-    return pos, vel, acc, yaw, yaw_rate
-
-
+def generate_spiral_trajectory(
     t: torch.Tensor,
     radius: torch.Tensor,
     omega: torch.Tensor,
@@ -444,7 +372,9 @@ class QuadcopterTrajectoryEnvCfg(DirectRLEnvCfg):
     """
 
     # Environment
-    episode_length_s = 30.0  # ↑ 延长: 避免策略在15s后进入未训练区域导致失控
+    episode_length_s = 60.0  # 上限: 用于 max_episode_length 计算
+    randomize_episode_length = True
+    episode_length_range = (15.0, 60.0)  # [短, 长] 秒
     decimation = 2  # 100Hz control frequency (sim.dt=1/200, policy runs every 2 physics steps)
     action_space = 4
     observation_space = 25  # +3: pos_integral_b (I-term 防漂移)
@@ -838,28 +768,41 @@ class QuadcopterTrajectoryEnv(DirectRLEnv):
             self.cfg.randomize_mass = True
             self.cfg.randomize_thrust = True
 
-        # Stage 2: 加大质量/推力 + 观测噪声
+        # Stage 2: 加大质量/推力 + 观测噪声 + 收紧sigma + 加大油门惩罚
         if stage >= 2:
             self.cfg.dr_dict['mass'] = 0.1
             self.cfg.dr_dict['thrust'] = 0.1
             self.cfg.add_observation_noise = True
+            self.cfg.pos_sigma = 0.2
+            self.cfg.vel_sigma = 0.3   # 放宽
+            self.cfg.yaw_sigma = 0.3   # 放宽
+            self.cfg.throttle_rate_reward_scale = -4.0   # 加大油门平滑惩罚
 
-        # Stage 3: 延迟 + PID
+        # Stage 3: 延迟 + PID + 精确模式 + 更强油门惩罚
         if stage >= 3:
             self.cfg.add_action_delay = True
             self.cfg.add_observation_delay = True
             self.cfg.dr_dict['pid_gains'] = max(self.cfg.dr_dict['pid_gains'], 0.1)
+            self.cfg.pos_sigma = 0.12
+            self.cfg.vel_sigma = 0.3   # 放宽
+            self.cfg.yaw_sigma = 0.3   # 放宽
+            self.cfg.throttle_rate_reward_scale = -5.0   # 极致平滑
+            self.cfg.action_rate_reward_scale   = -3.0
 
-        # Stage 4: 全开
+        # Stage 4: 全开 + 超精确
         if stage >= 4:
             self.cfg.add_wind_disturbance = True
             self.cfg.dr_dict['pid_gains'] = max(self.cfg.dr_dict['pid_gains'], 0.15)
             self.cfg.dr_dict['inertia'] = max(self.cfg.dr_dict['inertia'], 0.1)
             self.cfg.dr_dict['motor_lag'] = max(self.cfg.dr_dict['motor_lag'], 0.3)
             self.cfg.randomize_motor_time_constant = True
+            self.cfg.pos_sigma = 0.08   # 8cm→45%: 近零误差压力
+            self.cfg.vel_sigma = 0.3    # 放宽
+            self.cfg.yaw_sigma = 0.3    # 放宽
 
         print(f"\n{'='*60}")
         print(f"[Curriculum] Stage {old_stage} → {stage}  (step {self._total_steps:,})")
+        print(f"  pos/vel/yaw sigma: {self.cfg.pos_sigma}/{self.cfg.vel_sigma}/{self.cfg.yaw_sigma}")
         print(f"  mass:      ±{self.cfg.dr_dict['mass']*100:.0f}%")
         print(f"  thrust:    ±{self.cfg.dr_dict['thrust']*100:.0f}%")
         print(f"  inertia:   ±{self.cfg.dr_dict['inertia']*100:.0f}%")

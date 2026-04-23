@@ -1,3 +1,6 @@
+#include <vector>
+#include <cstdint>
+#include <cstring>
 #include "quadrotor_msgs/encode_msgs.h"
 #include <quadrotor_msgs/comm_types.h>
 

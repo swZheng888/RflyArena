@@ -1,5 +1,7 @@
 #include "PX4CtrlFSM.h"
 #include <uav_utils/converters.h>
+#include <std_msgs/Float32.h>
+#include <chrono>
 
 using namespace std;
 using namespace uav_utils;
@@ -323,6 +325,8 @@ void PX4CtrlFSM::process()
 	// }
 
 	// STEP3: solve and update new control commands
+	auto t_start = std::chrono::high_resolution_clock::now();
+
 	if (rotor_low_speed_during_land) // used at the start of auto takeoff
 	{
 		motors_idling(imu_data, u);
@@ -376,6 +380,13 @@ void PX4CtrlFSM::process()
 			return;
 		}
 	}
+
+	// 发布 PID 控制器求解耗时
+	auto t_end = std::chrono::high_resolution_clock::now();
+	double solve_ms = std::chrono::duration<double, std::milli>(t_end - t_start).count();
+	std_msgs::Float32 time_msg;
+	time_msg.data = solve_ms;
+	solve_time_pub.publish(time_msg);
 
 	// STEP4: publish control commands to mavros
 	if (param.use_bodyrate_ctrl)

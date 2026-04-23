@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- =============================================== -->
+    <!-- PX4Ctrl 真机飞行启动文件                         -->
+    <!-- MAVROS + PX4Ctrl                                -->
+    <!-- =============================================== -->
+
+    <!-- 串口与通信参数 -->
+    <arg name="fcu_url"       default="serial:///dev/ttyS7:921600"/>
+    <arg name="gcs_url"       default="udp://@15501"/>
+    <arg name="launch_mavros" default="true"/>
+
+    <!-- 话题配置 -->
+    <arg name="vrpn_object"   default="droneyee8"/>
+    <arg name="odom_topic"    default="/vrpn_client_node/$(arg vrpn_object)/0/odometry"/>
+    <arg name="cmd_topic"     default="/position_cmd"/>
+
+    <!-- 参数文件 -->
+    <arg name="ctrl_param_file" default="$(find px4ctrl)/config/ctrl_param_fpv.yaml"/>
+
+    <!-- MAVROS -->
+    <group if="$(arg launch_mavros)">
+        <include file="$(find mavros)/launch/px4.launch">
+            <arg name="fcu_url" value="$(arg fcu_url)"/>
+            <arg name="gcs_url" value="$(arg gcs_url)"/>
+        </include>
+    </group>
+
+    <!-- 提高 IMU / ATTITUDE 消息频率到 200Hz -->
+    <node pkg="mavros" type="mavcmd" name="set_imu_rate"
+          args="long 511 105 5000 0 0 0 0 0"
+          launch-prefix="bash -c 'sleep 5; exec $0 $@' --"
+          output="screen"/>
+    <node pkg="mavros" type="mavcmd" name="set_attitude_rate"
+          args="long 511 31 5000 0 0 0 0 0"
+          launch-prefix="bash -c 'sleep 6; exec $0 $@' --"
+          output="screen"/>
+
+    <!-- PX4Ctrl -->
+    <node pkg="px4ctrl" type="px4ctrl_node" name="px4ctrl" output="screen">
+        <remap from="~odom" to="$(arg odom_topic)"/>
+        <remap from="~cmd" to="$(arg cmd_topic)"/>
+        <rosparam command="load" file="$(arg ctrl_param_file)"/>
+    </node>
+</launch>

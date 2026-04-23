@@ -39,7 +39,7 @@ tasks:
   # ── A1: 悬停 ──
   - name: "A1_hover"
     type: hover
-    duration: 10
+    duration: 3
 
   # # ── A2: 可行轨迹 @1.0x ──
   - name: "A2_circle_1x"
@@ -55,7 +55,7 @@ tasks:
   - name: "A2_ellipse_1x"
     type: dynamic
     trajectory: ellipse
-    speed: 1.0
+  #   speed: 1.0
 
   # ── A3: 可行轨迹 @2.0x ──
   - name: "A3_circle_3x"
@@ -73,17 +73,23 @@ tasks:
     trajectory: ellipse
     speed: 3.0
 
-  # ── A4: 不可行轨迹 (zigzag + star, 低速/高速) ──
+  # # ── A4: 不可行轨迹 (zigzag + star, 低速/高速) ──
   - name: "A4_zigzag_0.3x"
     type: dynamic
     trajectory: zigzag
     speed: 0.3
+
+  # # - name: "A4_zigzag_1x"
+  # #   type: dynamic
+  # #   trajectory: zigzag
+  # #   speed: 1.0
 
   - name: "A4_star_0.3x"
     type: dynamic
     trajectory: star
     speed: 0.3
 
-  - name: "A1_hover"
-    type: hover
-    duration: 10
+  # - name: "A4_star_1x"
+  #   type: dynamic
+  #   trajectory: star
+  #   speed: 1.0

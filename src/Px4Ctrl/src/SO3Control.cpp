@@ -94,12 +94,11 @@ void SO3Control::calculateControl(const Eigen::Vector3d &des_pos,
   debug_.dir_dot_y = des_dir_dot(1);
   debug_.dir_dot_z = des_dir_dot(2);
   // std::cout << "kv = " << kv.transpose() << std::endl;
-  force_ = mass_ * g_ * Eigen::Vector3d(0, 0, 1);
-  force_ += mass_ * des_acc + acc_error;
+  force_ = mass_ * (g_ * Eigen::Vector3d(0, 0, 1) + des_acc + acc_error);
   
   Eigen::Vector4d quat;
   
-  if (forward(des_vel, des_acc + acc_error / mass_, des_jer, des_dir, des_dir_dot, yaw_, yaw_dot_, thr_, quat, omega_))
+  if (forward(des_vel, des_acc + acc_error, des_jer, des_dir, des_dir_dot, yaw_, yaw_dot_, thr_, quat, omega_))
   // if (forward(des_vel, des_acc, des_jer, des_dir, des_dir_dot, yaw_, yaw_dot_, thr_, quat, omega_))
   {
             // 2) 再按照设定的上下限夹一下
@@ -171,7 +170,7 @@ bool SO3Control::forward(const Eigen::Vector3d &vel,
                          Eigen::Vector4d &quat,
                          Eigen::Vector3d &omg)
 {
-  double mass = mass_, grav = 9.81, dh = 0, dv = 0, cp = 0, veps = 0.0001;
+  double mass = mass_, grav = g_, dh = 0, dv = 0, cp = 0, veps = 0.0001;
   double w0, w1, w2, dw0, dw1, dw2;
   double v0, v1, v2, a0, a1, a2, v_dot_a;
   double z0, z1, z2, dz0, dz1, dz2;
@@ -216,6 +215,10 @@ bool SO3Control::forward(const Eigen::Vector3d &vel,
   zu02 = zu0 * zu2;
   zu_sqr_norm = zu_sqr0 + zu_sqr1 + zu_sqr2;
   zu_norm = sqrt(zu_sqr_norm);
+  if (zu_norm < 1.0e-6)
+  {
+    return false;
+  }
   // real zb = [z0, z1, z2]^T
   z0 = zu0 / zu_norm;
   z1 = zu1 / zu_norm;
@@ -250,6 +253,10 @@ bool SO3Control::forward(const Eigen::Vector3d &vel,
   thr_ = z0 * f_term0 + z1 * f_term1 + z2 * f_term2;
 
   // 计算姿态q
+  if (z2 + 1.0 < 1.0e-5)
+  {
+    return false;
+  }
   tilt_den = sqrt(2.0 * (1.0 + z2));
   tilt0 = 0.5 * tilt_den;
   tilt1 = -z1 / tilt_den;
@@ -283,6 +290,10 @@ bool SO3Control::forward(const Eigen::Vector3d &vel,
   dir_xb2 = dir(2) - dir_dot_zb * z2;
   temp = dir_xb0 * dir_xb0 + dir_xb1 * dir_xb1 + dir_xb2 * dir_xb2;
   dir_xb_norm = sqrt(temp);
+  if (dir_xb_norm < 1.0e-6)
+  {
+    return false;
+  }
   ddir_dot_zb = z0 * ddir(0) + dir(0) * dz0 + z1 * ddir(1) + dir(1) * dz1 + z2 * ddir(2) + dir(2) * dz2;
   ddir_xb0 = ddir(0) - z0 * ddir_dot_zb - dir_dot_zb * dz0;
   ddir_xb1 = ddir(1) - z1 * ddir_dot_zb - dir_dot_zb * dz1;
@@ -304,6 +315,7 @@ bool SO3Control::forward(const Eigen::Vector3d &vel,
     sign = -1.0;
   // xvdot = xb.dot(dir_xb.normalized());
   xb_dot_dir_xb = (x0 * dir_xb0 + x1 * dir_xb1 + x2 * dir_xb2) / dir_xb_norm;
+  xb_dot_dir_xb = std::max(-1.0, std::min(1.0, xb_dot_dir_xb));
   // yaw = acos(xvdot) * sign;
   psi = acos(xb_dot_dir_xb) * sign;
 

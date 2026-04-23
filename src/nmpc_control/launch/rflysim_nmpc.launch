@@ -43,7 +43,7 @@
     <arg name="kill_height" default="0.08" />
     
     <!-- 轨迹预览配置 (A/B测试) -->
-    <arg name="use_trajectory_preview" default="true" />  <!-- true=新方法, false=旧方法 -->
+    <arg name="use_trajectory_preview" default="false" />  <!-- true=新方法, false=旧方法 -->
     <arg name="acc_threshold" default="3.0" />  <!-- 加速度阈值 m/s² -->
     
     <!-- ==================== 节点启动 ==================== -->

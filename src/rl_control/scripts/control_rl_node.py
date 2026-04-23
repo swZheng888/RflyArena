@@ -37,6 +37,7 @@ launch 参数:
 import rospy
 import numpy as np
 import time
+import time as _time
 import sys
 import os
 
@@ -118,6 +119,7 @@ class ControlRLNode:
         self._init_subscribers()
         self._init_publishers()
         self._init_timers()
+        self._init_display()
 
         rospy.loginfo("=" * 60)
         rospy.loginfo("[rl_control] 节点启动完成")
@@ -166,6 +168,17 @@ class ControlRLNode:
         self.mass    = MASS
         self.gravity = GRAVITY
 
+        # Sim2Real EMA 滤波参数 (对齐训练 env 的 motor_time_constant / ang_vel_cmd_time_constant)
+        self.throttle_filter_tau = rospy.get_param("~throttle_filter_tau", 0.04)  # 40ms 电机滞后
+        self.ang_vel_filter_tau  = rospy.get_param("~ang_vel_filter_tau",  0.02)  # 20ms 角速度平滑
+        self.ctrl_dt = 1.0 / self.ctrl_rate
+        # EMA alpha = dt / (tau + dt)
+        self.throttle_alpha = self.ctrl_dt / (self.throttle_filter_tau + self.ctrl_dt)
+        self.ang_vel_alpha  = self.ctrl_dt / (self.ang_vel_filter_tau  + self.ctrl_dt)
+        rospy.loginfo("[rl_control] EMA 滤波: throttle τ=%.0fms α=%.3f | ang_vel τ=%.0fms α=%.3f",
+                      self.throttle_filter_tau * 1000, self.throttle_alpha,
+                      self.ang_vel_filter_tau * 1000, self.ang_vel_alpha)
+
     def _init_state(self):
         # Odometry (ENU / FLU)
         self.pos_w      = np.zeros(3)
@@ -210,9 +223,19 @@ class ControlRLNode:
         # 上一步动作（25D obs 最后一维）
         self.last_thr_action = 0.0
 
+        # EMA 滤波状态 (初始化为悬停值，避免起飞阶梯响应)
+        self._filtered_throttle = float(self.hover_throttle)
+        self._filtered_ang_vel  = np.zeros(3)  # [wx, wy, wz] FLU
+
         # 位置积分项（对齐训练 env _pos_integral）
         self._pos_integral  = np.zeros(3)   # world 坐标系，限幅 ·3m
         self._last_obs_time = None          # 用于积分 dt 计算
+
+        # ── Dashboard 性能统计 ──
+        self._last_solve_time_ms   = 0.0
+        self._last_control_time    = None
+        self._control_freq_window  = []
+        self._last_action          = np.zeros(4)  # 最近一次原始 action
 
     def _init_policy(self):
         try:
@@ -340,6 +363,7 @@ class ControlRLNode:
 
         dt_ms = (time.perf_counter() - t0) * 1000.0
         self.pub_time.publish(Float32(dt_ms))
+        self._update_perf_stats(dt_ms)
 
     def _run_state_machine(self):
         # ── TAKEOFF ──────────────────────────────────────────────────
@@ -453,6 +477,7 @@ class ControlRLNode:
         obs    = self._build_obs(tgt_pos, tgt_vel, tgt_acc, tgt_yaw, tgt_yaw_rate)
         action = self.policy.predict(obs)
         self.last_thr_action = action[0]
+        self._last_action = action.copy()
         self._publish_action(action)
 
     def _build_obs(self, tgt_pos, tgt_vel, tgt_acc, tgt_yaw, tgt_yaw_rate) -> np.ndarray:
@@ -513,26 +538,30 @@ class ControlRLNode:
         action[0] ∈ [-1,1] → throttle = hover_throttle ± thrust_range
         action[1:4] ∈ [-1,1] → body angular rate FLU
 
-        注意: MAVROS body_rate 使用 FLU 坐标系（MAVROS 内部自动做 FLU→FRD 输出给 PX4）
-        与 RflySim 不同! RflySim 的 PX4MavCtrlV4 直接用 FRD，所以那边需要翻转 pitch/yaw
-        但 MAVROS 不需要翻转 —— 与 NMPC 节点 _publish_control 一致
+        应用 EMA 滤波以对齐训练环境的 motor_lag 和 ang_vel_cmd 平滑，
+        消除 sim-to-real 高频抖动。
         """
-        throttle = float(np.clip(
+        # 原始指令
+        raw_throttle = float(np.clip(
             self.hover_throttle + action[0] * self.thrust_range, 0., 1.
         ))
-        # MAVROS body_rate = FLU, 不做翻转（对齐 NMPC 节点行为）
-        wx = action[1] * self.max_roll_rate
-        wy = action[2] * self.max_pitch_rate
-        wz = action[3] * self.max_yaw_rate
+        raw_wx = action[1] * self.max_roll_rate
+        raw_wy = action[2] * self.max_pitch_rate
+        raw_wz = action[3] * self.max_yaw_rate
+
+        # EMA 滤波 (对齐训练 env: motor_time_constant=40ms, ang_vel_cmd=20ms)
+        self._filtered_throttle += self.throttle_alpha * (raw_throttle - self._filtered_throttle)
+        raw_ang = np.array([raw_wx, raw_wy, raw_wz])
+        self._filtered_ang_vel += self.ang_vel_alpha * (raw_ang - self._filtered_ang_vel)
 
         msg = AttitudeTarget()
         msg.header.stamp    = rospy.Time.now()
         msg.header.frame_id = "FCU"
         msg.type_mask       = AttitudeTarget.IGNORE_ATTITUDE
-        msg.thrust          = throttle
-        msg.body_rate.x     = float(wx)
-        msg.body_rate.y     = float(wy)
-        msg.body_rate.z     = float(wz)
+        msg.thrust          = float(self._filtered_throttle)
+        msg.body_rate.x     = float(self._filtered_ang_vel[0])
+        msg.body_rate.y     = float(self._filtered_ang_vel[1])
+        msg.body_rate.z     = float(self._filtered_ang_vel[2])
         self.pub_att.publish(msg)
 
     def _send_zero(self):
@@ -564,8 +593,88 @@ class ControlRLNode:
         ])
 
     def _quat_to_yaw(self, q: np.ndarray) -> float:
+        """四元数 [w,x,y,z] → yaw (rad)"""
         w, x, y, z = q
         return float(np.arctan2(2.*(w*z + x*y), 1. - 2.*(y*y + z*z)))
+
+    # ------------------------------------------------------------------
+    # 终端状态仪表盘 (2Hz, 极低开销, 与 NMPC Dashboard 对齐)
+    # ------------------------------------------------------------------
+    def _init_display(self):
+        self._status_line_count = 0
+        self._display_enabled = rospy.get_param("~status_display", True)
+        if self._display_enabled:
+            self._display_timer = rospy.Timer(rospy.Duration(0.5), self._display_status)
+
+    def _update_perf_stats(self, solve_ms):
+        """更新性能统计 (由 _control_loop 每帧调用)"""
+        self._last_solve_time_ms = solve_ms
+        now = _time.time()
+        if self._last_control_time is not None:
+            dt = now - self._last_control_time
+            if dt > 0:
+                self._control_freq_window.append(1.0 / dt)
+                if len(self._control_freq_window) > 50:
+                    self._control_freq_window.pop(0)
+        self._last_control_time = now
+
+    def _display_status(self, event):
+        """终端状态仪表盘 (2Hz)
+
+        使用 stdout + ANSI 转义码原地刷新，rospy 日志走 stderr 互不干扰。
+        """
+        if not self._display_enabled:
+            return
+
+        fcu     = (self.fcu_mode or "N/A")[:12]
+        armed_s = "Y" if self.armed else "N"
+        odom_s  = "Y" if self.odom_ok else "N"
+        rc_s    = "TRAJ" if self.rc_mode == ControlMode.TRAJECTORY else "POS"
+        stage   = self.node_state
+
+        if self.odom_ok:
+            p = self.pos_w
+            v = self.vel_w
+            pos_s = "{:6.2f} {:6.2f} {:6.2f}".format(p[0], p[1], p[2])
+            vel_s = "{:5.2f} {:5.2f} {:5.2f}".format(v[0], v[1], v[2])
+        else:
+            pos_s = "  --     --     --  "
+            vel_s = "  --    --    --  "
+
+        fw = self._control_freq_window
+        freq  = sum(fw) / len(fw) if fw else 0.0
+        solve = self._last_solve_time_ms
+
+        a = self._last_action
+        act_s = "T:{:+.2f} R:{:+.2f} P:{:+.2f} Y:{:+.2f}".format(a[0], a[1], a[2], a[3])
+
+        thr_s = "{:.3f}".format(self._filtered_throttle)
+        ema_s = "wx:{:+.1f} wy:{:+.1f} wz:{:+.1f}".format(
+            self._filtered_ang_vel[0], self._filtered_ang_vel[1], self._filtered_ang_vel[2])
+
+        W = 52
+        bar = "-" * (W - 2)
+        lines = [
+            "+" + bar + "+",
+            "|" + "RL Control Dashboard".center(W - 2) + "|",
+            "+" + bar + "+",
+            "| FCU: {:<10s} Armed:{} Odom:{}            |".format(fcu, armed_s, odom_s),
+            "| RC: {:<5s} Stage: {:<16s}           |".format(rc_s, stage),
+            "| Pos: {:<30s}           |".format(pos_s),
+            "| Vel: {:<30s}           |".format(vel_s),
+            "| Infer:{:5.1f}ms  Freq:{:5.1f}Hz                  |".format(solve, freq),
+            "| Act: {:<38s}   |".format(act_s),
+            "| Thr: {:<6s} EMA: {:<28s}  |".format(thr_s, ema_s),
+            "+" + bar + "+",
+        ]
+
+        # ANSI: move cursor up to overwrite previous block
+        if self._status_line_count > 0:
+            sys.stdout.write("\033[{}A".format(self._status_line_count))
+        for line in lines:
+            sys.stdout.write("\033[K" + line + "\n")
+        sys.stdout.flush()
+        self._status_line_count = len(lines)
 
     # ------------------------------------------------------------------
     # 调试可视化

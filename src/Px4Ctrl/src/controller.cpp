@@ -21,6 +21,7 @@ Controller::Controller(Parameter_t &param_) : param(param_)
   KAng(1) = param.gain.KAngP;
   KAng(2) = param.gain.KAngY;
   controller_.setMass(param.mass);
+  controller_.setGravity(param.gra);
   controller_.setThrustLimits(param.min_thr, param.max_thr);
   Eigen::Vector3d omega_limit;
   omega_limit << param.gain.maxRateR, param.gain.maxRateP, param.gain.maxRateY;   // 示例：roll/pitch 6 rad/s, yaw 3 rad/s
@@ -37,6 +38,11 @@ quadrotor_msgs::Px4ctrlDebug Controller::update_alg1(
     Controller_Output_t &u,
     double voltage)
 {
+  // 同步增益（支持动态调参）
+  Kp(0) = param.gain.Kp0; Kp(1) = param.gain.Kp1; Kp(2) = param.gain.Kp2;
+  Kv(0) = param.gain.Kv0; Kv(1) = param.gain.Kv1; Kv(2) = param.gain.Kv2;
+  KAng(0) = param.gain.KAngR; KAng(1) = param.gain.KAngP; KAng(2) = param.gain.KAngY;
+
   // Check the given velocity is valid.
   if (des.v(2) < -3.0)
     ROS_WARN("[px4ctrl] Desired z-Velocity = %6.3fm/s, < -3.0m/s, which is dangerous since the drone will be unstable!", des.v(2));
@@ -218,6 +224,17 @@ quadrotor_msgs::Px4ctrlDebug Controller::update_alg3(
     Controller_Output_t &u,
     double voltage)
 {
+  // 同步增益（支持动态调参）
+  Kp(0) = param.gain.Kp0;
+  Kp(1) = param.gain.Kp1;
+  Kp(2) = param.gain.Kp2;
+  Kv(0) = param.gain.Kv0;
+  Kv(1) = param.gain.Kv1;
+  Kv(2) = param.gain.Kv2;
+  KAng(0) = param.gain.KAngR;
+  KAng(1) = param.gain.KAngP;
+  KAng(2) = param.gain.KAngY;
+
   controller_.setPosition(odom.p);
   controller_.setVelocity(odom.v);
   controller_.setQuat(odom.q);

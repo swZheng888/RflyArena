@@ -41,7 +41,7 @@
     
     <!-- 3. 自动起飞节点 (延迟后发送起飞命令) -->
     <arg name="auto_takeoff" default="true" />
-    <arg name="takeoff_delay" default="10.0" />
+    <arg name="takeoff_delay" default="20.0" />
     
     <node pkg="px4ctrl" type="auto_takeoff.sh" name="auto_takeoff" 
           args="$(arg takeoff_delay)"

@@ -7,11 +7,11 @@ gra         : 9.81
 pose_solver : 3     # 0:From ZhepeiWang (drag & less singular) 1:From ZhepeiWang, 2:From rotor-drag    
 ctrl_freq_max   : 100.0
 use_bodyrate_ctrl: true 
-max_manual_vel: 1.0
-max_angle: -20  # Attitude angle limit in degree. A negative value means no limit.
+max_manual_vel: 2.0
+max_angle: 40  # Attitude angle limit in degree. A negative value means no limit.
 low_voltage: 13.2 # 4S battery
-max_thr: 6.0
-min_thr: 1.5
+max_thr: 12 #max12.3
+min_thr: 2.5 #min 2.5
 
 rc_reverse: # *
     roll: false
@@ -46,27 +46,27 @@ gain:
     # Kv1: 5.5
     # Kv2: 5.5  非SO(3)模式参数，默认质量1kg
 
-    Kp0: 3.0
-    Kp1: 3.0
-    Kp2: 3.0
-    Kv0: 2.0
-    Kv1: 2.0
-    Kv2: 2.0
+    Kp0: 13.320    # kp_x
+    Kp1: 13.755    # kp_y
+    Kp2: 13.889   # kp_z
+    Kv0: 3.478    # kd_x → 速度环P(阻尼)
+    Kv1: 2.902    # kd_y
+    Kv2: 3.359    # kd_z
        # ↓↓↓ No use now --
-    Kvi0: 0.0
-    Kvi1: 0.0
-    Kvi2: 0.0
+    Kvi0: 0.336   # ki_x → 积分
+    Kvi1: 0.274   # ki_y
+    Kvi2: 0.224   # ki_z
     Kvd0: 0.0
     Kvd1: 0.0
     Kvd2: 0.0
     # ↓↓↓ Only used in rate control mode.
     KAngR: 12.00
     KAngP: 12.00
-    KAngY: 4.0
+    KAngY: 12.0
 
-    maxRateR: 4.0
-    maxRateP: 4.0
-    maxRateY: 4.0
+    maxRateR: 8.0
+    maxRateP: 8.0
+    maxRateY: 8.0
     # KAngR: 1.0
     # KAngP: 1.0
     # KAngY: 1.0

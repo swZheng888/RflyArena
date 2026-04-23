@@ -24,7 +24,7 @@ MAX_PITCH_RATE = 3.84  # 220 deg/s (MC_PITCHRATE_MAX)
 MAX_YAW_RATE   = 3.49  # 200 deg/s (MC_YAWRATE_MAX)
 
 # RL 动作: throttle = hover_throttle ± THRUST_RANGE
-THRUST_RANGE = 0.15
+THRUST_RANGE = 0.3    # 必须对齐训练 env thrust_range=0.3
 
 # 计算悬停油门 hover_throttle = (mass*g/4 - Bt) / At
 HOVER_THROTTLE = (MASS * GRAVITY / 4.0 - Bt) / At

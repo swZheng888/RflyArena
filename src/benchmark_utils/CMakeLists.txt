@@ -28,6 +28,8 @@ include_directories(
 
 catkin_install_python(PROGRAMS
   scripts/benchmark_node.py
+  scripts/real_benchmark_node.py
+  scripts/repeat_real_benchmark_runner.py
   scripts/trajectory_generator.py
   scripts/benchmark_logger.py
   scripts/task_manager.py

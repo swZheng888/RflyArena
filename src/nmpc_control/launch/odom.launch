@@ -24,11 +24,11 @@
     <!-- RflySim 里程计节点 (连接飞控，发布定位) -->
     <node pkg="nmpc_control" type="rflysim_odom_node.py" name="rflysim_odom_node" output="screen">
         <param name="copter_id" value="$(arg copter_id)" />
-        <param name="rate" value="$(arg rate)" />
+        <param name="rate" value="200.0" />
         <param name="frame_id" value="$(arg frame_id)" />
         <param name="child_frame_id" value="$(arg child_frame_id)" />
-        <param name="odom_topic" value="$(arg odom_topic)" />
-        <param name="odom_enu_topic" value="$(arg odom_enu_topic)" />
+        <param name="odom_topic" value="/vio/odometry" />
+        <param name="odom_enu_topic" value="/vio/odometry_enu" />
     </node>
 
 </launch>

@@ -18,19 +18,19 @@
     <arg name="attitude_cmd_topic" default="/mavros/setpoint_raw/attitude" />
 
     <!-- ==================== RL 模型配置 ==================== -->
-    <arg name="model_path" default="/root/trajectory_project/src/rl_control/model/w4.onnx"/>
+    <arg name="model_path" default="$(find rl_control)/model/exported/model_2200.onnx"/>
 
     <!-- ==================== 控制器参数 ==================== -->
     <arg name="control_rate"       default="100"    doc="控制频率 Hz (对齐训练env decimation=2)"/>
-    <arg name="thrust_range"       default="0.3"    doc="油门动作范围 ± (训练env=0.3)"/>
+    <arg name="thrust_range"       default="0.4"    doc="油门动作范围 ± (训练env=0.3)"/>
     <arg name="max_roll_rate"      default="3.84"   doc="最大滚转角速率 rad/s (220°/s)"/>
     <arg name="max_pitch_rate"     default="3.84"   doc="最大俯仰角速率 rad/s (220°/s)"/>
     <arg name="max_yaw_rate"       default="3.49"   doc="最大偏航角速率 rad/s (200°/s)"/>
 
     <!-- ==================== Sim2Real 滤波参数 ==================== -->
     <!-- 对齐训练env: motor_time_constant=0.04s / ang_vel_cmd_time_constant=0.02s -->
-    <arg name="throttle_filter_tau" default="0.04"  doc="油门EMA滤波τ(s), 对齐训练motor_time_constant"/>
-    <arg name="ang_vel_filter_tau"  default="0.02"  doc="角速度EMA滤波τ(s), 对齐训练ang_vel_cmd_time_constant"/>
+    <arg name="throttle_filter_tau" default="0.00"  doc="油门EMA滤波τ(s), 对齐训练motor_time_constant"/>
+    <arg name="ang_vel_filter_tau"  default="0.00"  doc="角速度EMA滤波τ(s), 对齐训练ang_vel_cmd_time_constant"/>
 
     <!-- ==================== 起飞参数 ==================== -->
     <arg name="takeoff_height"     default="1.0"    doc="起飞目标高度 m"/>

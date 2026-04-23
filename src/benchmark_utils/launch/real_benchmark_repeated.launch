@@ -1,36 +1,40 @@
 <?xml version="1.0"?>
 <launch>
-    <!-- Repeated real-benchmark launcher -->
+    <!-- 仿真批量 Benchmark: 自动连续运行多次 -->
 
-    <arg name="odom_topic" default="/vrpn_client_node/droneyee08/odometry"/>
+    <arg name="repeats" default="10"/>
+    <arg name="pause_between_runs" default="3.0"/>
+
+    <arg name="odom_topic" default="/vio/odometry_enu"/>
     <arg name="position_cmd_topic" default="/position_cmd"/>
-
-    <arg name="controller_name" default="pid"/>
+    <arg name="controller_name" default="nmpc"/>
     <arg name="tasks_file"
          default="$(find benchmark_utils)/config/real_benchmark_tasks.yaml"/>
     <arg name="log_dir"
-         default="$(env HOME)/benchmark_results/$(arg controller_name)"/>
-
+         default="$(env HOME)/benchmark_results/$(arg controller_name)_repeat"/>
     <arg name="rate" default="100"/>
     <arg name="frame_id" default="world"/>
-    <arg name="repeats" default="10"/>
-    <arg name="run_analysis" default="false"/>
+    <arg name="run_analysis" default="true"/>
     <arg name="record_bag" default="false"/>
     <arg name="bag_dir" default="$(arg log_dir)"/>
     <arg name="vrpn_object" default="droneyee08"/>
+    <arg name="auto_start_delay" default="2.0"/>
 
-    <include file="$(find benchmark_utils)/launch/real_benchmark.launch">
-        <arg name="odom_topic" value="$(arg odom_topic)"/>
-        <arg name="position_cmd_topic" value="$(arg position_cmd_topic)"/>
-        <arg name="controller_name" value="$(arg controller_name)"/>
-        <arg name="tasks_file" value="$(arg tasks_file)"/>
-        <arg name="log_dir" value="$(arg log_dir)"/>
-        <arg name="rate" value="$(arg rate)"/>
-        <arg name="frame_id" value="$(arg frame_id)"/>
-        <arg name="repeats" value="$(arg repeats)"/>
-        <arg name="run_analysis" value="$(arg run_analysis)"/>
-        <arg name="record_bag" value="$(arg record_bag)"/>
-        <arg name="bag_dir" value="$(arg bag_dir)"/>
-        <arg name="vrpn_object" value="$(arg vrpn_object)"/>
-    </include>
+    <node pkg="benchmark_utils" type="repeat_real_benchmark_runner.py"
+          name="repeat_real_benchmark_runner" output="screen">
+        <param name="repeats" value="$(arg repeats)" type="int"/>
+        <param name="pause_between_runs" value="$(arg pause_between_runs)" type="double"/>
+        <param name="odom_topic" value="$(arg odom_topic)"/>
+        <param name="position_cmd_topic" value="$(arg position_cmd_topic)"/>
+        <param name="controller_name" value="$(arg controller_name)"/>
+        <param name="tasks_file" value="$(arg tasks_file)"/>
+        <param name="log_dir" value="$(arg log_dir)"/>
+        <param name="rate" value="$(arg rate)" type="int"/>
+        <param name="frame_id" value="$(arg frame_id)"/>
+        <param name="run_analysis" value="$(arg run_analysis)" type="bool"/>
+        <param name="record_bag" value="$(arg record_bag)" type="bool"/>
+        <param name="bag_dir" value="$(arg bag_dir)"/>
+        <param name="vrpn_object" value="$(arg vrpn_object)"/>
+        <param name="auto_start_delay" value="$(arg auto_start_delay)" type="double"/>
+    </node>
 </launch>

@@ -10,13 +10,13 @@
 
     <!-- ==================== 串口与通信参数 ==================== -->
     <arg name="fcu_url"       default="serial:///dev/ttyS7:921600"/>
-    <arg name="gcs_url"       default=""/>
+    <arg name="gcs_url"       default="udp://@15501" />
     <!-- ==================== 启动开关 ==================== -->
     <arg name="launch_mavros" default="true"   doc="是否启动 MAVROS"/>
     <arg name="launch_rviz"   default="false"  doc="是否启动 RViz"/>
     <!-- ==================== RL 模型配置 ==================== -->
-    <arg name="model_path"    default="/root/trajectory_project/src/rl_control/model/v3.onnx"
-         doc="ONNX 模型路径（必须）"/>
+    <arg name="model_path"    default="$(find rl_control)/model/w4.onnx"
+         doc="ONNX 模型路径"/>
     <!-- ==================== 控制器参数 ==================== -->
     <arg name="control_rate"       default="100"    doc="控制频率 Hz (对齐训练env decimation=2)"/>
     <arg name="thrust_range"       default="0.3"    doc="油门动作范围 ± (训练env=0.3)"/>
@@ -25,8 +25,8 @@
     <arg name="max_yaw_rate"       default="3.49"   doc="最大偏航角速率 rad/s (200°/s)"/>
     <!-- ==================== Sim2Real 滤波参数 ==================== -->
     <!-- 对齐训练env: motor_time_constant=0.04s / ang_vel_cmd_time_constant=0.02s -->
-    <arg name="throttle_filter_tau" default="0.04"  doc="油门EMA滤波τ(s), 对齐训练motor_time_constant"/>
-    <arg name="ang_vel_filter_tau"  default="0.02"  doc="角速度EMA滤波τ(s), 对齐训练ang_vel_cmd_time_constant"/>
+    <arg name="throttle_filter_tau" default="0.00"  doc="油门EMA滤波τ(s), 对齐训练motor_time_constant"/>
+    <arg name="ang_vel_filter_tau"  default="0.00"  doc="角速度EMA滤波τ(s), 对齐训练ang_vel_cmd_time_constant"/>
     <!-- ==================== 起飞参数 ==================== -->
     <arg name="takeoff_height"     default="1.0"    doc="起飞目标高度 m"/>
     <arg name="takeoff_vz_max"     default="0.5"    doc="最大上升速度 m/s"/>
@@ -51,6 +51,19 @@
             <arg name="gcs_url" value="$(arg gcs_url)"/>
         </include>
     </group>
+
+    <!-- ============================================================ -->
+    <!-- 2.1 提高 IMU 消息频率 (MAVROS 启动后延迟执行)                   -->
+    <!-- MAV_CMD_SET_MESSAGE_INTERVAL(511): HIGHRES_IMU(105) & ATTITUDE(31) → 5000µs = 200Hz -->
+    <!-- ============================================================ -->
+    <node pkg="mavros" type="mavcmd" name="set_imu_rate"
+          args="long 511 105 5000 0 0 0 0 0"
+          launch-prefix="bash -c 'sleep 5; exec $0 $@' --"
+          output="screen"/>
+    <node pkg="mavros" type="mavcmd" name="set_attitude_rate"
+          args="long 511 31 5000 0 0 0 0 0"
+          launch-prefix="bash -c 'sleep 6; exec $0 $@' --"
+          output="screen"/>
 
     <!-- ============================================================ -->
     <!-- 3. VRPN → PX4 位姿转发 (关键！PX4 需要外部位置才能切 Offboard)  -->

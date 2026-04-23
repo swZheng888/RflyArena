@@ -11,7 +11,7 @@
 ### Windows: 启动仿真实例
 
 ```batch
-# 运行 windows/rflysim/SITLRun.bat
+# 运行 SITLRun.bat
 Please input UAV swarm number: 4
 
 # 等待所有实例启动完成:
@@ -155,7 +155,7 @@ rostopic echo /uav2/vio/odometry -n 1
 
 ### 端口映射规则
 
-根据`windows/rflysim/SITLRun.bat`脚本：
+根据`SITLRun.bat`脚本：
 ```
 UAV ID  →  MAVLink端口
   1     →  14540
@@ -307,7 +307,7 @@ pkill -f 'rflysim_nmpc_multi.launch'
 
 启动并行调参前，确认：
 
-- [ ] Windows端：`windows/rflysim/SITLRun.bat` 启动了N个仿真实例
+- [ ] Windows端：SITLRun.bat 启动了N个仿真实例
 - [ ] QGroundControl 显示N个UAV连接
 - [ ] Linux端：启动了N个控制器实例
 - [ ] `rostopic list | grep uav` 显示所有话题

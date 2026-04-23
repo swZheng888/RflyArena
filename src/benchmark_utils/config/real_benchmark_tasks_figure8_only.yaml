@@ -1,0 +1,30 @@
+# ============================================================
+# Figure8 Only Benchmark 任务配置
+# ============================================================
+# 用于只重跑 figure8 相关任务，便于替换既有结果目录中的 figure8 数据
+# ============================================================
+
+hover_point: [0.0, 0.0, 1.0]
+hover_transit_time: 5.0
+stabilize_time: 3.0
+start_pos_tolerance: 0.3
+move_timeout: 30.0
+
+trajectory_radius: 1.0
+trajectory_height: 1.0
+num_loops: 2
+
+max_height: 1.5
+land_vz: 0.3
+land_threshold: 0.08
+
+tasks:
+  - name: "A2_figure8_1x"
+    type: dynamic
+    trajectory: figure8
+    speed: 1.0
+
+  - name: "A3_figure8_3x"
+    type: dynamic
+    trajectory: figure8
+    speed: 3.0

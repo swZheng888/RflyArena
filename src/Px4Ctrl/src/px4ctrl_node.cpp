@@ -2,6 +2,7 @@
 #include "PX4CtrlFSM.h"
 #include <signal.h>
 #include <std_msgs/String.h>
+#include <std_msgs/Float32.h>
 
 // 全局指针用于参数更新回调
 Parameter_t* g_param_ptr = nullptr;
@@ -156,6 +157,7 @@ int main(int argc, char *argv[])
     fsm.traj_start_trigger_pub = nh.advertise<geometry_msgs::PoseStamped>("/traj_start_trigger", 10);
 
     fsm.debug_pub = nh.advertise<quadrotor_msgs::Px4ctrlDebug>("/debugPx4ctrl", 10); // debug
+    fsm.solve_time_pub = nh.advertise<std_msgs::Float32>("/pid_control/solve_time_ms", 10);
 
     fsm.set_FCU_mode_srv = nh.serviceClient<mavros_msgs::SetMode>("/mavros/set_mode");
     fsm.arming_client_srv = nh.serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");

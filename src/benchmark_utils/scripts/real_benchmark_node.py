@@ -29,7 +29,6 @@ import yaml
 import os
 import sys
 import csv
-import copy
 from enum import Enum
 from datetime import datetime
 
@@ -77,6 +76,8 @@ class RealBenchmarkNode:
         rospy.loginfo("=" * 60)
         rospy.loginfo("[RealBench] 真机安全评估节点启动")
         rospy.loginfo("[RealBench] 任务数: %d", len(self.tasks))
+        rospy.loginfo("[RealBench] 控制器: %s, publish_dynamic_yaw=%s",
+                      self.controller_name, self.publish_dynamic_yaw)
         rospy.loginfo("[RealBench] 悬停点: %s", self.hover_point)
         rospy.loginfo("[RealBench] 日志: %s", self.log_dir)
         rospy.loginfo("[RealBench] 发布 /real_benchmark/start (Empty) 开始")
@@ -97,18 +98,30 @@ class RealBenchmarkNode:
             self.log_dir_base = os.path.expanduser(
                 f"~/benchmark_results"
             )
-        # 每次运行创建带时间戳的子目录
-        run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.log_dir = os.path.join(self.log_dir_base, run_timestamp)
+        self.use_timestamp_subdir = rospy.get_param("~use_timestamp_subdir", True)
+        # 默认每次运行创建带时间戳的子目录；批量脚本可关闭，直接写入指定目录
+        if self.use_timestamp_subdir:
+            run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.log_dir = os.path.join(self.log_dir_base, run_timestamp)
+        else:
+            self.log_dir = self.log_dir_base
         os.makedirs(self.log_dir, exist_ok=True)
 
         self.odom_topic = rospy.get_param("~odom_topic", "/vio/odometry")
         self.cmd_topic = rospy.get_param("~position_cmd_topic", "/position_cmd")
+        self.controller_name = rospy.get_param("~controller_name", "unknown").lower()
         self.rate_hz = rospy.get_param("~rate", 100.0)
         self.frame_id = rospy.get_param("~frame_id", "world")
-        self.repeats = max(1, int(rospy.get_param("~repeats", 1)))
         # 真机默认不做在线分析，节省资源；仿真/离线可开启
         self.run_analysis = rospy.get_param("~run_analysis", False)
+        # 仿真批量测试时可自动开始、结束后自动退出，便于外部脚本重复拉起
+        self.auto_start = rospy.get_param("~auto_start", False)
+        self.auto_start_delay = rospy.get_param("~auto_start_delay", 2.0)
+        self.shutdown_on_finish = rospy.get_param("~shutdown_on_finish", False)
+        self.publish_dynamic_yaw = rospy.get_param(
+            "~publish_dynamic_yaw",
+            self.controller_name != "rl",
+        )
 
     def _load_tasks(self):
         with open(self.tasks_file, "r") as f:
@@ -125,21 +138,7 @@ class RealBenchmarkNode:
         self.max_height = cfg.get("max_height", 1.5)         # 硬限高
         self.land_vz = cfg.get("land_vz", 0.3)              # 降落速度 m/s
         self.land_threshold = cfg.get("land_threshold", 0.1) # 判定落地高度
-        base_tasks = cfg.get("tasks", [])
-
-        if self.repeats > 1:
-            expanded_tasks = []
-            for repeat_idx in range(self.repeats):
-                for task in base_tasks:
-                    task_copy = copy.deepcopy(task)
-                    base_name = task_copy.get("name", f"task_{len(expanded_tasks)+1}")
-                    task_copy["base_name"] = base_name
-                    task_copy["repeat_idx"] = repeat_idx + 1
-                    task_copy["name"] = f"{base_name}_run{repeat_idx + 1:02d}"
-                    expanded_tasks.append(task_copy)
-            self.tasks = expanded_tasks
-        else:
-            self.tasks = base_tasks
+        self.tasks = cfg.get("tasks", [])
 
         if not self.tasks:
             rospy.logfatal("[RealBench] 任务清单为空!")
@@ -170,6 +169,7 @@ class RealBenchmarkNode:
         self.log_file_path = None
         self.record_start_time = None
         self.sample_count = 0
+        self.node_start_time = rospy.Time.now()
 
     def _init_trajectory_generator(self):
         self.traj_gen = DifferentialFlatTrajectory(self.frame_id)
@@ -257,6 +257,11 @@ class RealBenchmarkNode:
             # 如有 odom 才发布悬停指令
             if self.odom_ok:
                 self._publish_hover()
+                if self.auto_start:
+                    elapsed_from_boot = (rospy.Time.now() - self.node_start_time).to_sec()
+                    if elapsed_from_boot >= self.auto_start_delay:
+                        rospy.loginfo("[RealBench] 自动开始测试")
+                        self._transition_to(BenchmarkState.HOVER_TRANSIT)
 
         # ── ABORTED ──
         elif self.state == BenchmarkState.ABORTED:
@@ -363,7 +368,7 @@ class RealBenchmarkNode:
             speed = task.get("speed", 1.0)
 
             # 配置轨迹生成器
-            actual_speed = 0.8 * speed  # 基础速度 × 倍率
+            actual_speed = 0.6 * speed  # 基础速度 × 倍率
             self.traj_gen.set_params(actual_speed, self.trajectory_amplitude)
             self.traj_gen.num_loops = self.num_loops
 
@@ -434,10 +439,12 @@ class RealBenchmarkNode:
             self._publish_hover()
             return
 
-        # figure8 / zigzag 在交叉点处速度方向可能跳变
-        # 使用角度展开 + 低通滤波平滑 yaw 过渡
-        if traj_type in ("figure8", "zigzag", "star", "square"):
+        # figure8 / zigzag / star / square 在交叉点或尖点附近速度方向可能跳变。
+        # 这里保留“机头沿速度方向”的语义，只做角度展开平滑，不再强制置零。
+        if traj_type in ("figure8", "zigzag", "star", "square", "circle","ellipse"):
             yaw, yaw_dot = self._smooth_yaw(yaw, yaw_dot)
+
+        if not self.publish_dynamic_yaw:
             yaw = 0.0
             yaw_dot = 0.0
 
@@ -642,14 +649,19 @@ class RealBenchmarkNode:
             rospy.loginfo("[RealBench] ✅ 降落完成")
             # 停止发布指令，飞控会自动 disarm
             self._transition_to(BenchmarkState.ABORTED)  # 进入静止状态
+            if self.shutdown_on_finish:
+                rospy.loginfo("[RealBench] 任务完成，自动退出节点")
+                rospy.signal_shutdown("benchmark finished")
 
     def _on_all_done(self):
         rospy.loginfo("=" * 60)
         rospy.loginfo("[RealBench] 🎉 所有 %d 个任务完成! 开始降落...", len(self.tasks))
         rospy.loginfo("[RealBench] 结果: %s", self.log_dir)
         rospy.loginfo("=" * 60)
-        # 触发降落 (在 _control_loop 的 ALL_DONE 分支会调用 _do_landing)
-        # _do_landing 会自动切换到 LANDING 状态
+        # 批量仿真时直接退出当前轮次，避免卡在降落状态导致下一次起不来。
+        if self.shutdown_on_finish:
+            rospy.loginfo("[RealBench] 批量模式：当前轮次完成，直接退出")
+            rospy.signal_shutdown("benchmark run finished")
 
     # ------------------------------------------------------------------
     # 状态发布

@@ -12,24 +12,28 @@
     <!-- 仿真用 /vio/odometry_enu，真机用 VRPN 话题 -->
     <arg name="odom_topic"
          default="/vrpn_client_node/droneyee08/odometry"
-         doc="里程计话题: 仿真=/vio/odometry_enu 真机=/vrpn_client_node/droneyee08/odometry"/>
+         doc="里程计话题: 仿真=/vio/odometry_enu 真机=/vrpn_client_node/droneyee08/0/odometry"/>
     <arg name="position_cmd_topic" default="/position_cmd"/>
 
     <!-- ==================== 任务配置 ==================== -->
-    <arg name="controller_name" default="pid"    doc="控制器名 (rl/nmpc/pid), 用于目录和文件名区分"/>
+    <arg name="controller_name" default="rl"    doc="控制器名 (rl/nmpc/pid), 用于目录和文件名区分"/>
     <arg name="tasks_file"
          default="$(find benchmark_utils)/config/real_benchmark_tasks.yaml"
          doc="YAML 任务清单路径"/>
     <arg name="log_dir"
          default="$(env HOME)/benchmark_results/$(arg controller_name)"
          doc="日志根目录 (按控制器分目录)"/>
+    <arg name="use_timestamp_subdir" default="true"
+         doc="是否在 log_dir 下再创建时间戳子目录；批量脚本可设为 false"/>
 
     <!-- ==================== 参数 ==================== -->
     <arg name="rate"          default="100"   doc="控制频率 Hz"/>
     <arg name="frame_id"      default="world" doc="坐标系"/>
-    <arg name="repeats"       default="1"     doc="重复执行任务列表的次数"/>
     <!-- 真机只采集数据不分析；仿真/离线设为 true 等节点执行后立即分析 -->
     <arg name="run_analysis"  default="false" doc="任务完成后是否立即运行分析"/>
+    <arg name="auto_start"    default="false" doc="启动后自动开始，无需手动发 /real_benchmark/start"/>
+    <arg name="auto_start_delay" default="2.0" doc="自动开始前等待秒数"/>
+    <arg name="shutdown_on_finish" default="false" doc="全部任务完成并降落后自动退出节点"/>
     <!-- 录包开关 -->
     <arg name="record_bag"      default="false" doc="是否同步录制 rosbag"/>
     <arg name="bag_dir"         default="$(arg log_dir)" doc="bag 保存目录 (默认与日志同目录)"/>
@@ -37,16 +41,21 @@
 
     <!-- ==================== 节点 ==================== -->
     <node pkg="benchmark_utils" type="real_benchmark_node.py"
-          name="real_benchmark_node" output="screen">
+          name="real_benchmark_node" output="screen"
+          required="$(arg shutdown_on_finish)">
 
         <param name="tasks_file"          value="$(arg tasks_file)"/>
+        <param name="controller_name"     value="$(arg controller_name)"/>
         <param name="odom_topic"          value="$(arg odom_topic)"/>
         <param name="position_cmd_topic"  value="$(arg position_cmd_topic)"/>
         <param name="log_dir"             value="$(arg log_dir)"/>
+        <param name="use_timestamp_subdir" value="$(arg use_timestamp_subdir)" type="bool"/>
         <param name="rate"                value="$(arg rate)"          type="int"/>
         <param name="frame_id"            value="$(arg frame_id)"/>
-        <param name="repeats"             value="$(arg repeats)"       type="int"/>
         <param name="run_analysis"        value="$(arg run_analysis)"  type="bool"/>
+        <param name="auto_start"         value="$(arg auto_start)" type="bool"/>
+        <param name="auto_start_delay"   value="$(arg auto_start_delay)" type="double"/>
+        <param name="shutdown_on_finish" value="$(arg shutdown_on_finish)" type="bool"/>
     </node>
 
     <!-- ==================== 录包 (可选) ==================== -->

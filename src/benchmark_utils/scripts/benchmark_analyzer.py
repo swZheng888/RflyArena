@@ -152,6 +152,15 @@ class PerformanceMetrics:
         self.settling_time = 0.0
         self.rise_time = 0.0
 
+        # 时间对齐后的指标（用于区分纯相位滞后与形状跟踪误差）
+        self.aligned_pos_rms_error = 0.0
+        self.aligned_pos_max_error = 0.0
+        self.aligned_pos_mean_error = 0.0
+        self.aligned_vel_rms_error = 0.0
+        self.aligned_cross_track_rms = 0.0
+        self.aligned_along_track_rms = 0.0
+        self.aligned_yaw_rms_error = 0.0
+
         # 5. 轨迹特性
         self.traj_max_velocity = 0.0
         self.traj_mean_velocity = 0.0
@@ -393,6 +402,14 @@ class BenchmarkAnalyzer:
         # =====================================================================
         if not metrics.is_hover:
             metrics.phase_delay = self._estimate_phase_delay(data)
+            aligned = self._calculate_time_aligned_metrics(data, metrics.phase_delay)
+            metrics.aligned_pos_rms_error = aligned['pos_rms_error']
+            metrics.aligned_pos_max_error = aligned['pos_max_error']
+            metrics.aligned_pos_mean_error = aligned['pos_mean_error']
+            metrics.aligned_vel_rms_error = aligned['vel_rms_error']
+            metrics.aligned_cross_track_rms = aligned['cross_track_rms']
+            metrics.aligned_along_track_rms = aligned['along_track_rms']
+            metrics.aligned_yaw_rms_error = aligned['yaw_rms_error']
         else:
             hover_metrics = self._analyze_hover_transient(data, pos_errors)
             metrics.steady_state_error = hover_metrics['steady_state_error']
@@ -514,8 +531,61 @@ class BenchmarkAnalyzer:
         except:
             return 0.0
 
+    def _interp_series(self, time_src, values_src, time_query):
+        """对 1D/2D 序列按时间插值。"""
+        values_src = np.asarray(values_src)
+        if values_src.ndim == 1:
+            return np.interp(time_query, time_src, values_src)
+        out = np.zeros((len(time_query), values_src.shape[1]))
+        for i in range(values_src.shape[1]):
+            out[:, i] = np.interp(time_query, time_src, values_src[:, i])
+        return out
+
+    def _calculate_time_aligned_metrics(self, data, phase_delay):
+        """计算将目标按相位延迟平移后的对齐指标。"""
+        result = {
+            'pos_rms_error': 0.0,
+            'pos_max_error': 0.0,
+            'pos_mean_error': 0.0,
+            'vel_rms_error': 0.0,
+            'cross_track_rms': 0.0,
+            'along_track_rms': 0.0,
+            'yaw_rms_error': 0.0,
+        }
+        try:
+            time = data['time']
+            shifted_time = time - phase_delay
+
+            target_pos_aligned = self._interp_series(time, data['target_position'], shifted_time)
+            target_vel_aligned = self._interp_series(time, data['target_velocity'], shifted_time)
+            target_yaw_aligned = self._interp_series(time, data['target_yaw'], shifted_time)
+
+            pos_err_vec = target_pos_aligned - data['actual_position']
+            pos_errors = np.linalg.norm(pos_err_vec, axis=1)
+            vel_errors = np.linalg.norm(target_vel_aligned - data['actual_velocity'], axis=1)
+
+            result['pos_rms_error'] = float(np.sqrt(np.mean(pos_errors**2)))
+            result['pos_max_error'] = float(np.max(pos_errors))
+            result['pos_mean_error'] = float(np.mean(pos_errors))
+            result['vel_rms_error'] = float(np.sqrt(np.mean(vel_errors**2)))
+
+            aligned_data = dict(data)
+            aligned_data['target_position'] = target_pos_aligned
+            cross_track, along_track = self._calculate_cross_track_error(aligned_data)
+            result['cross_track_rms'] = float(np.sqrt(np.mean(cross_track**2)))
+            result['along_track_rms'] = float(np.sqrt(np.mean(along_track**2)))
+
+            actual_vel = data['actual_velocity']
+            actual_yaw = np.arctan2(actual_vel[:, 1], actual_vel[:, 0])
+            yaw_errors = self._wrap_angle(target_yaw_aligned - actual_yaw)
+            result['yaw_rms_error'] = float(np.sqrt(np.mean(yaw_errors**2)))
+        except Exception:
+            pass
+
+        return result
+
     def _calculate_cross_track_error(self, data):
-        """计算横向误差和沿轨误差"""
+        """基于同一时刻附近的参考线段投影计算横向误差和沿轨误差。"""
         target = data['target_position']
         actual = data['actual_position']
         n = len(target)
@@ -523,20 +593,47 @@ class BenchmarkAnalyzer:
         cross_track = np.zeros(n)
         along_track = np.zeros(n)
 
+        if n == 0:
+            return cross_track, along_track
+
+        if n == 1:
+            diff = actual - target[0]
+            cross_track[:] = np.linalg.norm(diff, axis=1)
+            return cross_track, along_track
+
         for i in range(n):
-            # 找到轨迹上最近的点
-            distances = np.linalg.norm(target - actual[i], axis=1)
-            nearest_idx = np.argmin(distances)
-            cross_track[i] = distances[nearest_idx]
+            point = actual[i]
 
-            # 沿轨误差（索引差 × 平均段长）
-            index_diff = nearest_idx - i
+            candidates = []
             if i > 0:
-                seg_len = np.linalg.norm(target[i] - target[i-1])
-            else:
-                seg_len = np.linalg.norm(target[1] - target[0]) if n > 1 else 0
+                candidates.append((target[i - 1], target[i]))
+            if i < n - 1:
+                candidates.append((target[i], target[i + 1]))
 
-            along_track[i] = abs(index_diff * seg_len)
+            best_cross = float('inf')
+            best_along = 0.0
+
+            for seg_start, seg_end in candidates:
+                seg_vec = seg_end - seg_start
+                seg_len = np.linalg.norm(seg_vec)
+
+                if seg_len < 1e-9:
+                    err_vec = point - seg_start
+                    along = 0.0
+                    cross = np.linalg.norm(err_vec)
+                else:
+                    t_hat = seg_vec / seg_len
+                    err_vec = point - target[i]
+                    along = np.dot(err_vec, t_hat)
+                    cross_vec = err_vec - along * t_hat
+                    cross = np.linalg.norm(cross_vec)
+
+                if cross < best_cross:
+                    best_cross = cross
+                    best_along = abs(along)
+
+            cross_track[i] = best_cross
+            along_track[i] = best_along
 
         return cross_track, along_track
 
@@ -943,6 +1040,17 @@ class BenchmarkAnalyzer:
                 f.write(f"峰值时刻: {metrics.peak_time:.4f} s\n")
                 f.write(f"稳态误差: {metrics.steady_state_error:.4f} m\n")
             f.write("\n")
+
+            if not metrics.is_hover:
+                f.write("【时间对齐后指标】\n")
+                f.write("-" * 80 + "\n")
+                f.write(f"对齐位置 RMS 误差: {metrics.aligned_pos_rms_error:.4f} m\n")
+                f.write(f"对齐位置最大误差: {metrics.aligned_pos_max_error:.4f} m\n")
+                f.write(f"对齐位置平均误差: {metrics.aligned_pos_mean_error:.4f} m\n")
+                f.write(f"对齐速度 RMS 误差: {metrics.aligned_vel_rms_error:.4f} m/s\n")
+                f.write(f"对齐横向 RMS 误差: {metrics.aligned_cross_track_rms:.4f} m\n")
+                f.write(f"对齐沿轨 RMS 误差: {metrics.aligned_along_track_rms:.4f} m\n")
+                f.write(f"对齐航向 RMS 误差: {metrics.aligned_yaw_rms_error:.4f} rad ({np.degrees(metrics.aligned_yaw_rms_error):.2f}°)\n\n")
 
             f.write("【控制平滑度】\n")
             f.write("-" * 80 + "\n")

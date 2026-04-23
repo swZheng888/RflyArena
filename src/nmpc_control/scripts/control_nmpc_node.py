@@ -79,6 +79,7 @@ class ControlNode(object):
         self._init_publishers()
         self._init_debug_tools()
         self._init_timers()
+        self._init_display()
 
         rospy.loginfo("控制节点初始化完成")
 
@@ -113,6 +114,7 @@ class ControlNode(object):
         self.armed = False
         self.current_state = None
         self.control_active = False
+        self._last_solve_time_ms = 0.0
 
     def _init_controller(self):
         """初始化 NMPC 控制器"""
@@ -158,10 +160,10 @@ class ControlNode(object):
         self.start_position = None
         self.start_quat = None
         
-        # 轨迹预览参数 (与NMPC严格一致)
-        self.preview_N = 35  # 预测步数 = NMPC的N
-        self.preview_Tf = 0.35  # ⚠️ 修复：预测时间必须与NMPC的Tf一致（之前是0.5s导致外推超出时域）
-        self.preview_dt = self.preview_Tf / self.preview_N  # = 0.01s (35步 × 0.01s = 0.35s)
+        # 轨迹预览参数 (从NMPC控制器自动获取，确保同步)
+        self.preview_N = self.controller.N
+        self.preview_Tf = self.controller.Tf
+        self.preview_dt = self.preview_Tf / self.preview_N
 
     def _init_rc_params(self):
         """初始化遥控器相关参数"""
@@ -288,7 +290,7 @@ class ControlNode(object):
 
     def _init_timers(self):
         """初始化定时器"""
-        control_rate = rospy.get_param("~control_rate", 50)
+        control_rate = rospy.get_param("~control_rate", 100)
         self.control_timer = rospy.Timer(rospy.Duration(1.0 / control_rate), self.control_callback)
 
     # -------------------------------------------------------------------------- #
@@ -403,16 +405,16 @@ class ControlNode(object):
         rospy.signal_shutdown("Ctrl+C pressed")
 
     def send_zero_commands(self):
+        """发送单条零命令（非阻塞心跳，保持 PX4 Offboard setpoint 流）"""
         control_msg = AttitudeTarget()
         control_msg.header.frame_id = "FCU"
         control_msg.type_mask = AttitudeTarget.IGNORE_ATTITUDE
         control_msg.thrust = 0.0
-        for _ in range(10):
-            if rospy.is_shutdown():
-                break
-            control_msg.header.stamp = rospy.Time.now()
-            self.ctrl_FCU_pub.publish(control_msg)
-            rospy.sleep(0.01)
+        control_msg.body_rate.x = 0.0
+        control_msg.body_rate.y = 0.0
+        control_msg.body_rate.z = 0.0
+        control_msg.header.stamp = rospy.Time.now()
+        self.ctrl_FCU_pub.publish(control_msg)
 
     def publish_tf(self, position, quat):
         if self.debug_flag != 1 or self.tf_broadcaster is None:
@@ -578,6 +580,7 @@ class ControlNode(object):
 
         # 发布求解时间 (毫秒)
         solve_time_ms = solve_time * 1000.0
+        self._last_solve_time_ms = solve_time_ms
         self.solve_time_pub.publish(Float32(solve_time_ms))
 
         # 计算并发布控制频率
@@ -597,12 +600,88 @@ class ControlNode(object):
         self.last_control_time = current_time
 
     # -------------------------------------------------------------------------- #
+    # 终端状态仪表盘
+    # -------------------------------------------------------------------------- #
+
+    def _init_display(self):
+        """初始化终端状态显示 (2Hz, 极低开销)"""
+        self._status_line_count = 0
+        self._display_enabled = rospy.get_param("~status_display", True)
+        if self._display_enabled:
+            self._display_timer = rospy.Timer(rospy.Duration(0.5), self._display_status)
+
+    def _get_current_stage(self):
+        """从现有状态推导当前阶段 (无额外开销)"""
+        if self.current_state is None:
+            return "NO ODOM"
+        if not self.control_active:
+            return "STANDBY"
+        if self.rc_mode == ControlMode.POSITION:
+            return "POS CTRL"
+        if not self.takeoff_done:
+            return "TAKEOFF"
+        if not self.trajectory_received:
+            return "HOVER"
+        if not self.trajectory_started:
+            return "GOTO START"
+        return "TRACKING"
+
+    def _display_status(self, event):
+        """终端状态仪表盘 (2Hz)
+
+        使用 stdout + ANSI 转义码原地刷新，rospy 日志走 stderr 互不干扰。
+        """
+        fcu = (self.current_mode or "N/A")[:12]
+        armed_s = "Y" if self.armed else "N"
+        odom_s  = "Y" if self.current_state is not None else "N"
+        rc_s    = "TRAJ" if self.rc_mode == ControlMode.TRAJECTORY else "POS"
+        stage   = self._get_current_stage()
+
+        if self.current_state is not None:
+            p = self.current_state[0:3]
+            v = self.current_state[7:10]
+            pos_s = "{:6.2f} {:6.2f} {:6.2f}".format(p[0], p[1], p[2])
+            vel_s = "{:5.2f} {:5.2f} {:5.2f}".format(v[0], v[1], v[2])
+        else:
+            pos_s = "  --     --     --  "
+            vel_s = "  --    --    --  "
+
+        freq_w = self.control_freq_window
+        freq = sum(freq_w) / len(freq_w) if freq_w else 0.0
+        solve = self._last_solve_time_ms
+
+        W = 48
+        bar = "-" * (W - 2)
+        lines = [
+            "+" + bar + "+",
+            "|" + "NMPC Control Dashboard".center(W - 2) + "|",
+            "+" + bar + "+",
+            "| FCU: {:<10s} Armed:{} Odom:{}        |".format(fcu, armed_s, odom_s),
+            "| RC: {:<5s} Stage: {:<16s}       |".format(rc_s, stage),
+            "| Pos: {:<30s}       |".format(pos_s),
+            "| Vel: {:<30s}       |".format(vel_s),
+            "| Solve:{:5.1f}ms  Freq:{:5.1f}Hz              |".format(solve, freq),
+            "+" + bar + "+",
+        ]
+
+        # ANSI: move cursor up to overwrite previous block
+        if self._status_line_count > 0:
+            sys.stdout.write("\033[{}A".format(self._status_line_count))
+        for line in lines:
+            sys.stdout.write("\033[K" + line + "\n")
+        sys.stdout.flush()
+        self._status_line_count = len(lines)
+
+    # -------------------------------------------------------------------------- #
     # 主控制循环
     # -------------------------------------------------------------------------- #
 
     def control_callback(self, event):
         if self.current_state is None:
-            return
+            mode_name = "轨迹跟踪" if self.rc_mode == ControlMode.TRAJECTORY else "位置控制"
+            rospy.logwarn_throttle(2.0, "⚠️ 未收到里程计数据，禁止切入 Offboard！当前遥控器模式: %s | odom 话题: %s",
+                                   mode_name, self.odom_topic)
+            return  # 不发送任何 setpoint，PX4 将拒绝 Offboard 切换
 
         if not self.control_active:
             self.send_zero_commands()
@@ -701,7 +780,7 @@ class ControlNode(object):
                 target_state = self._update_trajectory_point()
                 if self.trajectory_started:
                     self.mode_pub.publish("TRACKING")
-                    
+
                     # ★ 可配置的控制模式切换 ★
                     if not self.use_trajectory_preview:
                         # 旧方法：始终使用单点控制
@@ -737,7 +816,7 @@ class ControlNode(object):
 
         # 发布性能指标
         self._publish_performance_metrics(_dt)
-    
+
     # ========================================================================
     # 轨迹预览生成函数 - 基于当前PVA外推未来N+1步
     # ========================================================================
@@ -771,7 +850,7 @@ class ControlNode(object):
         jerk = self.target_jerk.copy()  # 使用jerk进行加速度外推
         yaw = self.target_yaw
         yaw_dot = self.target_yaw_dot
-        
+
         # 外推未来N+1步
         for i in range(N + 1):
             t = i * dt
