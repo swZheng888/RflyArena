@@ -2,7 +2,7 @@
 
 RflyArena: A Deployment-Oriented Edge-Computing Benchmark Platform for UAV Control with Hardware-in-the-Loop Validation.
 
-This repository is a sanitized export of the original development workspace. It keeps the source packages, Docker workflow, controller models, and launch/config files needed to build and run the benchmark, while excluding local Git history, build caches, logs, and benchmark result dumps.
+This repository contains the source packages, Docker workflow, controller models, and launch/config files needed to build and run the benchmark platform.
 
 ## Repository Layout
 
@@ -287,17 +287,6 @@ The `windows/rflysim/` directory contains the Windows-side launcher scripts used
 
 By default the scripts expect the simulator toolchain under `C:\PX4PSP`. If your local RflySim installation lives elsewhere, edit the `PSP_PATH` and `PSP_PATH_LINUX` variables at the top of the batch files before running them.
 
-## What Was Removed From the Original Workspace
+## License
 
-- local Git history and nested Git metadata
-- catkin tool state and cache directories
-- Docker runtime logs
-- benchmark result dumps and generated CSV summaries
-- Python bytecode caches and local preview artifacts
-- local desktop shortcut / machine-specific files
-
-## Notes Before Publishing
-
-- Review repository-wide licensing before making the project public
-- Check whether any model files, datasets, or third-party packages require additional attribution
-- Replace or anonymize any machine-specific paths that may still appear in comments or scripts
+This repository is released under the MIT License. See [LICENSE](LICENSE).
