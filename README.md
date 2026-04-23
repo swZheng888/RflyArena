@@ -1,8 +1,36 @@
+<div align="center">
+
 # RflyArena
 
-RflyArena: A Deployment-Oriented Edge-Computing Benchmark Platform for UAV Control with Hardware-in-the-Loop Validation.
+**A deployment-oriented edge-computing benchmark platform for UAV control with hardware-in-the-loop validation**
 
-This repository contains the source packages, Docker workflow, controller models, and launch/config files needed to build and run the benchmark platform.
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+![ROS 1](https://img.shields.io/badge/ROS-1-22314E?logo=ros)
+![Platform](https://img.shields.io/badge/Platform-Ubuntu%20%7C%20Windows%20%7C%20WSL-4EAA25)
+![Workflow](https://img.shields.io/badge/Workflow-PC--SITL%20%7C%20Edge--HITL%20%7C%20Real%20Flight-orange)
+[![GitHub stars](https://img.shields.io/github/stars/swZheng888/RflyArena?style=social)](https://github.com/swZheng888/RflyArena)
+
+</div>
+
+RflyArena is a research benchmark platform for reproducible UAV controller evaluation across desktop simulation, constrained edge deployment, and real-flight validation. The repository includes the ROS packages, Docker workflow, controller baselines, benchmark orchestration, and Windows-side RflySim launch assets used to reproduce the evaluation pipeline described in the paper.
+
+**Quick links:** [Repository Layout](#repository-layout) • [Build](#build) • [Controller Entry Points](#controller-entry-points) • [Paper-Aligned Evaluation Workflow](#paper-aligned-evaluation-workflow) • [Docker Workflow](#docker-workflow) • [License](#license)
+
+## Highlights
+
+- Unified evaluation chain spanning `PC-SITL`, `Edge-HITL`, and `Real Flight`
+- Side-by-side benchmark support for `PID/SO(3)`, `NMPC`, and `RL` controllers
+- Docker-based compute constraints for deployment-faithful edge benchmarking
+- Optuna-based automatic tuning for deployment-sensitive controller parameters
+- Windows-side RflySim launch scripts with a DLL-based vehicle dynamics model
+
+## Architecture Overview
+
+<div align="center">
+  <img src="assets/architecture_overview.png" alt="RflyArena system architecture" width="900"/>
+</div>
+
+RflyArena couples the simulator, benchmark task publisher, and controller stack through a unified ROS interface so that the same benchmark tasks can be executed consistently in desktop simulation, constrained edge deployment, and real-flight validation.
 
 ## Repository Layout
 
@@ -18,10 +46,10 @@ This repository contains the source packages, Docker workflow, controller models
 
 ## Requirements
 
-- Ubuntu + ROS 1 catkin workspace environment
+- Ubuntu with a ROS 1 catkin workspace
 - `catkin build` or `catkin_make`
-- MAVROS / PX4 runtime environment for controller experiments
-- Python dependencies required by the Python-based controller and benchmark scripts
+- MAVROS / PX4 runtime support for controller experiments
+- Python dependencies required by the benchmark and controller scripts
 
 ## Build
 
