@@ -90,7 +90,7 @@ Switch the demo by changing only the controller launch file and trajectory argum
 ## Benchmark Demos
 
 <div align="center">
-  <img src="assets/benchmark_gifs/three_trajectory_panels.gif" alt="Three-panel RflyArena benchmark trajectory overview" width="700"/>
+  <img src="assets/benchmark_gifs/three_trajectory_panels.gif" alt="Three-panel RflyArena benchmark trajectory overview" width="860"/>
   <br/>
   <sub><strong>Multi-trajectory benchmark overview</strong> · synchronized tracking visualization across representative tasks</sub>
 </div>
@@ -112,10 +112,10 @@ Switch the demo by changing only the controller launch file and trajectory argum
         <sub>optimization-based</sub>
       </td>
       <td align="center">
-        <img src="assets/benchmark_gifs/nmpc_circle.gif" alt="NMPC circle trajectory demo" width="260"/>
+        <img src="assets/benchmark_gifs/nmpc_circle.gif" alt="NMPC circle trajectory demo" width="340"/>
       </td>
       <td align="center">
-        <img src="assets/benchmark_gifs/nmpc_figure8.gif" alt="NMPC figure-8 trajectory demo" width="260"/>
+        <img src="assets/benchmark_gifs/nmpc_figure8.gif" alt="NMPC figure-8 trajectory demo" width="340"/>
       </td>
     </tr>
     <tr>
@@ -124,10 +124,10 @@ Switch the demo by changing only the controller launch file and trajectory argum
         <sub>classical baseline</sub>
       </td>
       <td align="center">
-        <img src="assets/benchmark_gifs/pid_circle.gif" alt="PID/SO(3) circle trajectory demo" width="260"/>
+        <img src="assets/benchmark_gifs/pid_circle.gif" alt="PID/SO(3) circle trajectory demo" width="340"/>
       </td>
       <td align="center">
-        <img src="assets/benchmark_gifs/pid_figure8.gif" alt="PID/SO(3) figure-8 trajectory demo" width="260"/>
+        <img src="assets/benchmark_gifs/pid_figure8.gif" alt="PID/SO(3) figure-8 trajectory demo" width="340"/>
       </td>
     </tr>
     <tr>
@@ -136,10 +136,10 @@ Switch the demo by changing only the controller launch file and trajectory argum
         <sub>policy baseline</sub>
       </td>
       <td align="center">
-        <img src="assets/benchmark_gifs/rl_circle.gif" alt="RL circle trajectory demo" width="260"/>
+        <img src="assets/benchmark_gifs/rl_circle.gif" alt="RL circle trajectory demo" width="340"/>
       </td>
       <td align="center">
-        <img src="assets/benchmark_gifs/rl_figure8.gif" alt="RL figure-8 trajectory demo" width="260"/>
+        <img src="assets/benchmark_gifs/rl_figure8.gif" alt="RL figure-8 trajectory demo" width="340"/>
       </td>
     </tr>
   </tbody>
