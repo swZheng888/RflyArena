@@ -466,26 +466,40 @@ class PublicationPlotter:
 
         # 评估维度
         categories = [
-            'Tracking\nPrecision',
+            'Track.\nAccuracy',
             'Velocity\nTracking',
-            'Control\nSmoothness',
+            'Control\nSmooth.',
             'Response\nSpeed',
-            'Energy\nEfficiency'
+            'Energy\nEff.'
         ]
 
-        def score(val, best, worst):
+        def soft_inverse_score(val, best, worst, floor=28.0, gamma=0.60):
             if val <= best:
                 return 100
             if val >= worst:
-                return 0
-            return 100 * (1 - (val - best) / (worst - best))
+                return floor
+            ratio = (val - best) / (worst - best)
+            return floor + (100 - floor) * ((1 - ratio) ** gamma)
+
+        def soft_log_inverse_score(val, best, worst, floor=24.0, gamma=0.85):
+            if val <= best:
+                return 100
+            val = min(max(val, best), worst)
+            ratio = (np.log(val) - np.log(best)) / (np.log(worst) - np.log(best))
+            return floor + (100 - floor) * ((1 - ratio) ** gamma)
+
+        def soft_energy_score(val, target=0.8, floor=35.0):
+            if val <= 0:
+                return floor
+            ratio = min(val / target, 1.0)
+            return floor + (100 - floor) * np.sqrt(ratio)
 
         values = [
-            score(metrics.pos_rms_error, 0.03, 0.25),
-            score(metrics.vel_rms_error, 0.05, 0.50),
-            score(metrics.actual_jerk_rms, 1.0, 20.0) if metrics.actual_jerk_rms > 0 else 50,
-            score(abs(metrics.phase_delay), 0.01, 0.30),
-            min(100, metrics.energy_efficiency_index * 100) if metrics.energy_efficiency_index > 0 else 50
+            soft_inverse_score(metrics.pos_rms_error, 0.01, 0.25),
+            soft_inverse_score(metrics.vel_rms_error, 0.02, 0.50),
+            soft_log_inverse_score(metrics.actual_jerk_rms, 30.0, 5000.0),
+            soft_inverse_score(abs(metrics.phase_delay), 0.005, 0.30),
+            soft_energy_score(metrics.energy_efficiency_index),
         ]
 
         # 闭合多边形
@@ -501,14 +515,17 @@ class PublicationPlotter:
         # 设置
         ax.set_xticks(angles[:-1])
         ax.set_xticklabels(categories, fontsize=self.style.FONT_SIZE_TICK)
+        ax.tick_params(axis='x', pad=10)
         ax.set_ylim(0, 100)
         ax.set_yticks([20, 40, 60, 80, 100])
         ax.set_yticklabels(['20', '40', '60', '80', '100'],
                           fontsize=self.style.FONT_SIZE_TICK - 1)
+        ax.set_rlabel_position(90)
+        ax.grid(True, alpha=0.3)
 
         # 标题
         ax.set_title(f'Overall Score: {metrics.overall_score:.1f}/100 ({metrics.grade})',
-                    fontsize=self.style.FONT_SIZE_TITLE, pad=15)
+                    fontsize=self.style.FONT_SIZE_TITLE, pad=18)
 
         plt.tight_layout()
         self._save_figure(fig, name)
@@ -802,10 +819,13 @@ Energy Efficiency Index & %.4f & - \\
         print("\n[5/7] 动态特性图...")
         self.plot_dynamics(data, metrics, f'{prefix}fig_dynamics')
 
-        print("\n[6/7] 综合分析图...")
+        print("\n[6/8] 雷达图...")
+        self.plot_radar(metrics, f'{prefix}fig_radar')
+
+        print("\n[7/8] 综合分析图...")
         self.plot_comprehensive_figure(data, metrics, f'{prefix}fig_comprehensive')
 
-        print("\n[7/7] 指标表格...")
+        print("\n[8/8] 指标表格...")
         self.generate_metrics_table(metrics, f'{prefix}table_metrics')
 
         print("\n" + "=" * 60)
