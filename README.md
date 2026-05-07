@@ -14,7 +14,7 @@
 
 RflyArena is a research benchmark platform for reproducible UAV controller evaluation across desktop simulation, constrained edge deployment, and real-flight validation. The repository includes the ROS packages, Docker workflow, controller baselines, benchmark orchestration, and Windows-side RflySim launch assets used to reproduce the evaluation pipeline described in the paper.
 
-**Quick links:** [Repository Layout](#repository-layout) • [Build](#build) • [Controller Entry Points](#controller-entry-points) • [Paper-Aligned Evaluation Workflow](#paper-aligned-evaluation-workflow) • [Docker Workflow](#docker-workflow) • [License](#license)
+**Quick links:** [Benchmark Demos](#benchmark-demos) • [Repository Layout](#repository-layout) • [Build](#build) • [Controller Entry Points](#controller-entry-points) • [Paper-Aligned Evaluation Workflow](#paper-aligned-evaluation-workflow) • [Docker Workflow](#docker-workflow) • [License](#license)
 
 ## Highlights
 
@@ -31,6 +31,64 @@ RflyArena is a research benchmark platform for reproducible UAV controller evalu
 </div>
 
 RflyArena couples the simulator, benchmark task publisher, and controller stack through a unified ROS interface so that the same benchmark tasks can be executed consistently in desktop simulation, constrained edge deployment, and real-flight validation.
+
+## Benchmark Demos
+
+<div align="center">
+  <img src="assets/benchmark_gifs/three_trajectory_panels.gif" alt="Three-panel RflyArena benchmark trajectory overview" width="900"/>
+  <br/>
+  <sub><strong>Multi-trajectory benchmark overview</strong> · synchronized tracking visualization across representative tasks</sub>
+</div>
+
+<br/>
+
+<table>
+  <thead>
+    <tr>
+      <th width="18%">Controller</th>
+      <th width="41%">Circle Tracking</th>
+      <th width="41%">Figure-8 Tracking</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td align="center">
+        <strong>NMPC</strong><br/>
+        <sub>optimization-based</sub>
+      </td>
+      <td align="center">
+        <img src="assets/benchmark_gifs/nmpc_circle.gif" alt="NMPC circle trajectory demo" width="390"/>
+      </td>
+      <td align="center">
+        <img src="assets/benchmark_gifs/nmpc_figure8.gif" alt="NMPC figure-8 trajectory demo" width="390"/>
+      </td>
+    </tr>
+    <tr>
+      <td align="center">
+        <strong>PID/SO(3)</strong><br/>
+        <sub>classical baseline</sub>
+      </td>
+      <td align="center">
+        <img src="assets/benchmark_gifs/pid_circle.gif" alt="PID/SO(3) circle trajectory demo" width="390"/>
+      </td>
+      <td align="center">
+        <sub>Figure-8 demo pending</sub>
+      </td>
+    </tr>
+    <tr>
+      <td align="center">
+        <strong>RL</strong><br/>
+        <sub>policy baseline</sub>
+      </td>
+      <td align="center">
+        <img src="assets/benchmark_gifs/rl_circle.gif" alt="RL circle trajectory demo" width="390"/>
+      </td>
+      <td align="center">
+        <img src="assets/benchmark_gifs/rl_figure8.gif" alt="RL figure-8 trajectory demo" width="390"/>
+      </td>
+    </tr>
+  </tbody>
+</table>
 
 ## Repository Layout
 
