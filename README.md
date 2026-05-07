@@ -12,25 +12,80 @@
 
 </div>
 
-RflyArena is a research benchmark platform for reproducible UAV controller evaluation across desktop simulation, constrained edge deployment, and real-flight validation. The repository includes the ROS packages, Docker workflow, controller baselines, benchmark orchestration, and Windows-side RflySim launch assets used to reproduce the evaluation pipeline described in the paper.
+RflyArena is an end-to-end benchmark toolkit for reproducible UAV controller evaluation across desktop simulation, constrained edge deployment, and real-flight validation. It packages the ROS interfaces, controller baselines, benchmark task manager, logging/analysis scripts, Docker resource profiles, and Windows-side RflySim assets needed to reproduce the evaluation pipeline described in the paper.
 
-**Quick links:** [Benchmark Demos](#benchmark-demos) • [Repository Layout](#repository-layout) • [Build](#build) • [Controller Entry Points](#controller-entry-points) • [Paper-Aligned Evaluation Workflow](#paper-aligned-evaluation-workflow) • [Docker Workflow](#docker-workflow) • [License](#license)
+**Quick links:** [What It Does](#what-it-does) • [Quick Demo](#quick-demo) • [Benchmark Demos](#benchmark-demos) • [Build](#build) • [Evaluation Workflow](#paper-aligned-evaluation-workflow) • [Docker Workflow](#docker-workflow) • [Repository Layout](#repository-layout)
 
-## Highlights
+## What It Does
 
-- Unified evaluation chain spanning `PC-SITL`, `Edge-HITL`, and `Real Flight`
-- Side-by-side benchmark support for `PID/SO(3)`, `NMPC`, and `RL` controllers
-- Docker-based compute constraints for deployment-faithful edge benchmarking
-- Optuna-based automatic tuning for deployment-sensitive controller parameters
-- Windows-side RflySim launch scripts with a DLL-based vehicle dynamics model
+<table>
+  <tr>
+    <td width="33%">
+      <strong>Run UAV benchmark tasks</strong><br/>
+      <sub>Hover, circle, figure-8, ellipse, disturbance, repeated real-flight tasks, and CSV-based reference trajectories.</sub>
+    </td>
+    <td width="33%">
+      <strong>Compare controllers fairly</strong><br/>
+      <sub>Evaluate PID/SO(3), NMPC, and RL baselines through the same ROS topics, task manager, and metric pipeline.</sub>
+    </td>
+    <td width="33%">
+      <strong>Bridge sim to hardware</strong><br/>
+      <sub>Reuse one workflow across PC-SITL, edge-constrained HITL containers, and safety-gated real-flight validation.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="33%">
+      <strong>Emulate edge compute</strong><br/>
+      <sub>Use Docker/Cgroups profiles for Jetson, Raspberry Pi, and FMU-like CPU/memory constraints.</sub>
+    </td>
+    <td width="33%">
+      <strong>Log and analyze results</strong><br/>
+      <sub>Record bags, compute tracking metrics, generate summaries, and create publication-style benchmark plots.</sub>
+    </td>
+    <td width="33%">
+      <strong>Tune automatically</strong><br/>
+      <sub>Run Optuna-based parameter search for deployment-sensitive controller settings.</sub>
+    </td>
+  </tr>
+</table>
 
-## Architecture Overview
+## Quick Demo
 
-<div align="center">
-  <img src="assets/architecture_overview.png" alt="RflyArena system architecture" width="900"/>
-</div>
+The fastest demo is a PC-SITL tracking task: start RflySim/PX4/MAVROS first, launch one controller, then launch the benchmark task in another terminal.
 
-RflyArena couples the simulator, benchmark task publisher, and controller stack through a unified ROS interface so that the same benchmark tasks can be executed consistently in desktop simulation, constrained edge deployment, and real-flight validation.
+**1. Build and source**
+
+```bash
+cd RflyArena
+catkin build
+source devel/setup.bash
+```
+
+**2. Start a controller**
+
+```bash
+roslaunch nmpc_control rflysim_nmpc.launch
+```
+
+**3. Run a benchmark task**
+
+```bash
+roslaunch benchmark_utils benchmark.launch \
+  task_type:=dynamic \
+  trajectory_type:=circle \
+  speed_level:=1.0 \
+  odom_topic:=/vio/odometry_enu \
+  coordinate_frame:=1
+```
+
+Switch the demo by changing only the controller launch file and trajectory argument:
+
+| Try this | Command / argument |
+| --- | --- |
+| PID/SO(3) controller | `roslaunch Px4Ctrl rflysim_pid.launch` |
+| RL controller | `roslaunch rl_control rflysim_rl.launch` |
+| Figure-8 task | `trajectory_type:=figure8` |
+| Faster tracking | `speed_level:=3.0` |
 
 ## Benchmark Demos
 
@@ -89,6 +144,14 @@ RflyArena couples the simulator, benchmark task publisher, and controller stack 
     </tr>
   </tbody>
 </table>
+
+## Architecture Overview
+
+<div align="center">
+  <img src="assets/architecture_overview.png" alt="RflyArena system architecture" width="900"/>
+</div>
+
+RflyArena couples the simulator, benchmark task publisher, and controller stack through a unified ROS interface so that the same benchmark tasks can be executed consistently in desktop simulation, constrained edge deployment, and real-flight validation.
 
 ## Repository Layout
 
