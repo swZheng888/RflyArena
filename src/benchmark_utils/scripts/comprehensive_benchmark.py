@@ -368,15 +368,17 @@ class ComprehensiveBenchmark:
             f.write(f"最小RMS误差: {min_rms:.4f} m\n")
             f.write(f"最大RMS误差: {max_rms:.4f} m\n\n")
             
-            # 性能评级
-            if avg_score >= 97:
+            # 性能评级（与 benchmark_analyzer v2.0 保持一致）
+            if avg_score >= 90:
                 overall_grade = "A+ (优秀)"
-            elif avg_score >= 90:
-                overall_grade = "A (良好)"
             elif avg_score >= 80:
+                overall_grade = "A (良好)"
+            elif avg_score >= 70:
                 overall_grade = "B (及格)"
+            elif avg_score >= 60:
+                overall_grade = "C (一般)"
             else:
-                overall_grade = "C (需改进)"
+                overall_grade = "D (需改进)"
             
             f.write(f"综合评级: {overall_grade}\n\n")
             
