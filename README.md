@@ -426,6 +426,12 @@ RflyArena can generate a self-contained local-ranking submission package after b
 
 An internal SITL Benchmark Board is maintained for comparing verified controller submissions. It reports the overall ranking by mean verified score and task-class rankings for A1 hover stability, A2 nominal tracking, A3 high-speed tracking, and A4 low-speed complex paths. The public leaderboard URL will be added here after paper acceptance.
 
+<div align="center">
+  <img src="assets/web.png" alt="RflyArena SITL Benchmark Board preview" width="900"/>
+  <br/>
+  <sub><strong>SITL Benchmark Board preview</strong> · overall and task-class rankings from verified local submission packages</sub>
+</div>
+
 Each task analysis produces:
 
 ```text
