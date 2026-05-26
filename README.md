@@ -424,6 +424,8 @@ Tuning outputs are written under `tuning_results/`, including the Optuna databas
 
 RflyArena can generate a self-contained local-ranking submission package after benchmark evaluation. The package is intended for leaderboard upload without rerunning the whole controller benchmark on the server.
 
+An internal SITL Benchmark Board is maintained for comparing verified controller submissions. It reports the overall ranking by mean verified score and task-class rankings for A1 hover stability, A2 nominal tracking, A3 high-speed tracking, and A4 low-speed complex paths. The public leaderboard URL will be added here after paper acceptance.
+
 Each task analysis produces:
 
 ```text
