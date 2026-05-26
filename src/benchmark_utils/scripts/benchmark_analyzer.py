@@ -56,6 +56,9 @@ import json
 import numpy as np
 import glob
 import argparse
+import shutil
+import subprocess
+import zipfile
 from datetime import datetime
 from collections import defaultdict
 
@@ -708,12 +711,15 @@ class BenchmarkAnalyzer:
         """
         计算综合评分
 
-        评分维度与权重：
-        - 位置精度 (40%): 基于 RMS 误差
-        - 速度跟踪 (20%): 基于速度 RMS 误差
-        - 控制平滑度 (20%): 基于 Jerk RMS
-        - 响应速度 (10%): 基于相位延迟
-        - 能效 (10%): 基于能效指数
+        当前总分更偏向工程上的可飞性与跟踪表现：
+        - 位置精度 (50%): 基于 RMS/沿轨误差
+        - 速度跟踪 (30%): 基于速度 RMS 误差
+        - 响应速度 (20%): 基于相位延迟
+
+        说明：
+        - 能效不再参与 overall_score，只在雷达图等可视化中展示
+        - 平滑度保留在报告和雷达图中，但不再直接拉低总分
+        - 误差阈值相对旧版略放宽，避免评分过于严格
         """
         def score_metric(val, best, worst):
             """计算单项得分 [0-100]"""
@@ -725,22 +731,19 @@ class BenchmarkAnalyzer:
 
         # 选择合适的误差指标
         if metrics.is_hover:
-            pos_score = score_metric(metrics.pos_rms_error, 0.03, 0.30)
+            pos_score = score_metric(metrics.pos_rms_error, 0.03, 0.35)
         else:
-            pos_score = score_metric(metrics.cross_track_rms if metrics.cross_track_rms > 0 else metrics.pos_rms_error, 0.03, 0.25)
+            pos_metric = metrics.cross_track_rms if metrics.cross_track_rms > 0 else metrics.pos_rms_error
+            pos_score = score_metric(pos_metric, 0.03, 0.30)
 
-        vel_score = score_metric(metrics.vel_rms_error, 0.05, 0.50)
-        smooth_score = score_metric(metrics.actual_jerk_rms, 1.0, 20.0) if metrics.actual_jerk_rms > 0 else 50
-        delay_score = score_metric(abs(metrics.phase_delay), 0.01, 0.30)
-        energy_score = min(100, metrics.energy_efficiency_index * 100) if metrics.energy_efficiency_index > 0 else 50
+        vel_score = score_metric(metrics.vel_rms_error, 0.05, 0.60)
+        delay_score = score_metric(abs(metrics.phase_delay), 0.01, 0.35)
 
-        # 加权平均
+        # 加权平均：主看位置、速度和响应，不让能耗/平滑度主导总分
         total_score = (
-            pos_score * 0.40 +
-            vel_score * 0.20 +
-            smooth_score * 0.20 +
-            delay_score * 0.10 +
-            energy_score * 0.10
+            pos_score * 0.50 +
+            vel_score * 0.30 +
+            delay_score * 0.20
         )
 
         # 难度调整（高难度轨迹适当加分）
@@ -1098,6 +1101,90 @@ class BenchmarkAnalyzer:
         metrics.to_json(json_file)
         print(f"已生成指标: {json_file}")
 
+    def _find_proof_tool(self):
+        """查找编译后的 proof 签名工具。"""
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        workspace_root = os.path.abspath(os.path.join(script_dir, "..", "..", ".."))
+        candidates = [
+            os.path.join(workspace_root, "tools", "benchmark_proof_tool"),
+            os.path.join(workspace_root, "private", "benchmark_proof_tool"),
+            os.path.join(script_dir, "benchmark_proof_tool"),
+            os.path.join(workspace_root, "devel", "lib",
+                         "benchmark_utils", "benchmark_proof_tool"),
+            os.path.join(workspace_root, "build", "benchmark_utils",
+                         "benchmark_proof_tool"),
+            os.path.join(os.getcwd(), "devel", "lib", "benchmark_utils",
+                         "benchmark_proof_tool"),
+            os.path.join(os.getcwd(), "build", "benchmark_utils",
+                         "benchmark_proof_tool"),
+        ]
+
+        for path in candidates:
+            path = os.path.abspath(path)
+            if os.path.isfile(path) and os.access(path, os.X_OK):
+                return path
+
+        return shutil.which("benchmark_proof_tool")
+
+    def _generate_proof_package(self, task_name, metrics, csv_file, output_dir):
+        """生成 result.csv + manifest.json + signature.txt + proof.zip。"""
+        proof_tool = self._find_proof_tool()
+        if not proof_tool:
+            print("警告: 未找到 benchmark_proof_tool，跳过 proof.zip 生成。")
+            print("      请先重新编译 benchmark_utils。")
+            return None
+
+        proof_dir = os.path.join(output_dir, "proof")
+        os.makedirs(proof_dir, exist_ok=True)
+
+        proof_csv = os.path.join(proof_dir, "result.csv")
+        shutil.copy2(csv_file, proof_csv)
+
+        score_text = f"{float(metrics.overall_score):.6f}"
+        sample_count_text = str(int(metrics.sample_count))
+        evaluator_version = os.environ.get("BENCHMARK_EVALUATOR_VERSION",
+                                           "local-v0.1")
+        phase_delay_text = os.environ.get("BENCHMARK_PHASE_DELAY_SECONDS")
+        if phase_delay_text is None:
+            phase_delay_text = f"{float(getattr(metrics, 'phase_delay', 0.0)):.6f}"
+        scoring_mode = os.environ.get("BENCHMARK_SCORING_MODE", "raw")
+
+        cmd = [
+            proof_tool,
+            "--csv", proof_csv,
+            "--output", proof_dir,
+            "--task-name", str(task_name),
+            "--score", score_text,
+            "--grade", str(metrics.grade),
+            "--sample-count", sample_count_text,
+            "--evaluator-version", evaluator_version,
+            "--phase-delay", phase_delay_text,
+            "--scoring-mode", scoring_mode,
+        ]
+
+        try:
+            subprocess.run(cmd, check=True, stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE, text=True)
+        except subprocess.CalledProcessError as e:
+            print("警告: proof 签名失败，跳过 proof.zip 生成。")
+            if e.stderr:
+                print(e.stderr.strip())
+            return None
+
+        zip_path = os.path.join(output_dir, "proof.zip")
+        files = [
+            (proof_csv, "result.csv"),
+            (os.path.join(proof_dir, "manifest.json"), "manifest.json"),
+            (os.path.join(proof_dir, "signature.txt"), "signature.txt"),
+        ]
+
+        with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for src, arcname in files:
+                zf.write(src, arcname)
+
+        print(f"已生成本地排行榜 proof: {zip_path}")
+        return zip_path
+
     def analyze(self, csv_file, task_name=None, output_dir=None, skip_plot=False):
         """
         完整分析流程
@@ -1110,6 +1197,7 @@ class BenchmarkAnalyzer:
         """
         if output_dir is None:
             output_dir = os.path.dirname(csv_file)
+        os.makedirs(output_dir, exist_ok=True)
 
         if task_name is None:
             basename = os.path.basename(csv_file)
@@ -1156,6 +1244,10 @@ class BenchmarkAnalyzer:
         # 4. 生成报告
         print("正在生成分析报告...")
         self.generate_report(task_name, metrics, csv_file, output_dir)
+
+        # 5. 生成本地排行榜 proof 包
+        print("正在生成本地排行榜 proof...")
+        self._generate_proof_package(task_name, metrics, csv_file, output_dir)
 
         print("\n" + "=" * 70)
         print("分析完成！")

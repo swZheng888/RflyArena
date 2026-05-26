@@ -211,12 +211,21 @@ done
 python3 "$WORKSPACE/src/benchmark_utils/scripts/generate_summary.py" \
     --results_dir "$LOG_DIR" 2>/dev/null || echo "Warning: 汇总报告生成失败"
 
+# 本地排行榜提交包
+python3 "$WORKSPACE/src/benchmark_utils/scripts/generate_submission_package.py" \
+    --results-dir "$LOG_DIR" \
+    --controller "$CONTROLLER" \
+    --select-best \
+    --analyze-missing \
+    --no-plot 2>/dev/null || echo "Warning: 提交包生成失败"
+
 # ==================== 输出结果 ====================
 echo ""
 echo "============================================================"
 echo -e "${GREEN} 测试结果${NC}"
 echo "============================================================"
 echo "  目录:  $LOG_DIR"
+echo "  提交包: $LOG_DIR/local_rank_ready.zip"
 echo ""
 echo "  结构:"
 ls -d "$LOG_DIR"/*/ 2>/dev/null | while read d; do

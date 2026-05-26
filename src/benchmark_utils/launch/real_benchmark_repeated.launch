@@ -15,6 +15,7 @@
     <arg name="rate" default="100"/>
     <arg name="frame_id" default="world"/>
     <arg name="run_analysis" default="true"/>
+    <arg name="generate_submission_package" default="true"/>
     <arg name="record_bag" default="false"/>
     <arg name="bag_dir" default="$(arg log_dir)"/>
     <arg name="vrpn_object" default="droneyee08"/>
@@ -32,6 +33,8 @@
         <param name="rate" value="$(arg rate)" type="int"/>
         <param name="frame_id" value="$(arg frame_id)"/>
         <param name="run_analysis" value="$(arg run_analysis)" type="bool"/>
+        <param name="generate_submission_package"
+               value="$(arg generate_submission_package)" type="bool"/>
         <param name="record_bag" value="$(arg record_bag)" type="bool"/>
         <param name="bag_dir" value="$(arg bag_dir)"/>
         <param name="vrpn_object" value="$(arg vrpn_object)"/>

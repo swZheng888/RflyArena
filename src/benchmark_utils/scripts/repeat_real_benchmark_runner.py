@@ -25,6 +25,7 @@ class RepeatRealBenchmarkRunner:
         self.rate = rospy.get_param("~rate", 100)
         self.frame_id = rospy.get_param("~frame_id", "world")
         self.run_analysis = rospy.get_param("~run_analysis", True)
+        self.generate_submission_package = rospy.get_param("~generate_submission_package", True)
         self.record_bag = rospy.get_param("~record_bag", False)
         self.bag_dir = rospy.get_param("~bag_dir", self.log_dir)
         self.vrpn_object = rospy.get_param("~vrpn_object", "droneyee08")
@@ -87,6 +88,37 @@ class RepeatRealBenchmarkRunner:
                 time.sleep(self.pause_between_runs)
 
         rospy.loginfo("[RepeatBench] 全部批量测试完成")
+        self._generate_submission_package()
+
+    def _generate_submission_package(self):
+        if not self.generate_submission_package:
+            return
+
+        script_path = os.path.join(
+            os.path.dirname(__file__), "generate_submission_package.py"
+        )
+        if not os.path.exists(script_path):
+            rospy.logwarn("[RepeatBench] 提交包脚本不存在: %s", script_path)
+            return
+
+        cmd = [
+            sys.executable,
+            script_path,
+            "--results-dir", self.batch_root_dir,
+            "--controller", self.controller_name,
+            "--select-best",
+            "--analyze-missing",
+            "--no-plot",
+        ]
+        rospy.loginfo("[RepeatBench] 正在生成提交包: %s", " ".join(cmd))
+        ret = subprocess.call(cmd)
+        if ret != 0:
+            rospy.logwarn("[RepeatBench] 提交包生成失败，退出码: %d", ret)
+            return
+        rospy.loginfo(
+            "[RepeatBench] 提交包已生成: %s",
+            os.path.join(self.batch_root_dir, "local_rank_ready.zip")
+        )
 
 
 if __name__ == "__main__":

@@ -35,3 +35,6 @@ desktop.ini
 
 # Local environment files
 .env
+
+# Private local ranking signer; do not publish the embedded signing key.
+src/benchmark_utils/private/
