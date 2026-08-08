@@ -2,7 +2,7 @@
 
 # RflyArena
 
-**A deployment-oriented edge-computing benchmark platform for UAV control with hardware-in-the-loop validation**
+**RflyArena: A Unified Testing and Deployment Framework for UAV Controllers from SITL to Real Flight**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![ROS 1](https://img.shields.io/badge/ROS-1-22314E?logo=ros)
