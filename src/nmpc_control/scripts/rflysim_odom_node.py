@@ -60,9 +60,13 @@ class RflySimOdomNode:
         """初始化 RflySim 连接"""
         self.mavCtrl = PX4MavCtrlV4.PX4MavCtrler(self.copter_id)
         self.mavCtrl.InitTrueDataLoop()
-        self.mavCtrl.InitMavLoop()  # 同时初始化 MAVLink 接口以获取 uavAngRate
+        if rospy.get_param('~init_mavlink', True):
+            self.mavCtrl.InitMavLoop()  # 同时初始化 MAVLink 接口以获取 uavAngRate
+        else:
+            rospy.loginfo("MAVLink 由外部 MAVROS 负责，里程计节点不占用 20101")
 
-        self.req = ReqCopterSim.ReqCopterSim()
+        listen_sim_timestamp = rospy.get_param('~listen_sim_timestamp', True)
+        self.req = ReqCopterSim.ReqCopterSim(listen_sim_timestamp)
         self.target_ip = self.req.getSimIpID(self.copter_id)
 
         rospy.loginfo("请求 RflySim 数据，飞机 ID: %d", self.copter_id)
@@ -74,11 +78,15 @@ class RflySimOdomNode:
 
         self.ros_start = RflyRosStart.RflyRosStart(self.copter_id, self.target_ip)
 
-        self.vis = VisionCaptureApi.VisionCaptureApi(self.target_ip)
-        self.vis.jsonLoad()
-        self.vis.sendReqToUE4(0, self.target_ip)
-        self.vis.startImgCap()
-        self.vis.sendImuReqCopterSim(self.copter_id, self.target_ip)
+        self.vis = None
+        if rospy.get_param('~start_vision_capture', True):
+            self.vis = VisionCaptureApi.VisionCaptureApi(self.target_ip)
+            self.vis.jsonLoad()
+            self.vis.sendReqToUE4(0, self.target_ip)
+            self.vis.startImgCap()
+            self.vis.sendImuReqCopterSim(self.copter_id, self.target_ip)
+        else:
+            rospy.loginfo("视觉采集由外部节点负责，里程计节点不占用图像端口")
 
         rospy.loginfo("RflySim 连接已建立")
 

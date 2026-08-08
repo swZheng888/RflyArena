@@ -8,5 +8,5 @@ cd /d %PSP_PATH%\VcXsrv
 tasklist|find /i "vcxsrv.exe" >nul || Xlaunch.exe -run config1.xlaunch
 
 cd /d "%~dp0"
-wsl -d RflySim-20.04 
+wsl -d RflySim-20.04
 
