@@ -22,6 +22,8 @@ catkin_package(
 
 catkin_install_python(PROGRAMS
   scripts/control_rl_node.py
+  scripts/control_rl_rknn_node.py
+  scripts/convert_onnx_to_rknn.py
   scripts/vrpn_to_odom.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
